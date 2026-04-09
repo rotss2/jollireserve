@@ -77,7 +77,7 @@ router.post("/register", async (req, res) => {
 
     await usersCol.doc(id).set(userData);
 
-    // Send OTP via Resend
+    // Send OTP via Brevo
     const mailResult = await sendMail({
       to: userData.email,
       subject: "JolliReserve: Your verification code",
@@ -85,6 +85,19 @@ router.post("/register", async (req, res) => {
     });
 
     console.log("✅ Register:", userData.email, "| OTP:", code, "| Mail:", JSON.stringify(mailResult));
+    
+    // Check if email actually sent
+    if (mailResult.skipped || mailResult.error) {
+      console.error("❌ Email failed:", mailResult.error);
+      // Still create account but warn user
+      return res.json({ 
+        pendingVerification: true, 
+        email: userData.email,
+        warning: "Account created but email failed to send. Please use 'Resend Code' or contact support.",
+        emailError: mailResult.error
+      });
+    }
+    
     res.json({ pendingVerification: true, email: userData.email });
 
   } catch (err) {

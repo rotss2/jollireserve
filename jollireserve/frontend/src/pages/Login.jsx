@@ -55,10 +55,16 @@ export default function Login({ onAuthed }) {
     e.preventDefault();
     setLoading(true);
     try {
-      await api.post("/auth/register", { name, email: signupEmail, password: signupPassword });
+      const res = await api.post("/auth/register", { name, email: signupEmail, password: signupPassword });
       setVerifyEmail(signupEmail);
       setStep("verify");
-      showToast("success", "OTP sent to your email. Check your inbox!");
+      
+      // Check if email actually sent
+      if (res.data.warning) {
+        showToast("warning", res.data.warning);
+      } else {
+        showToast("success", "OTP sent to your email. Check your inbox!");
+      }
     } catch (err) {
       showToast("error", err.response?.data?.error || err.message || "Signup failed");
     } finally {

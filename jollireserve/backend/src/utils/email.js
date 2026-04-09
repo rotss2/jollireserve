@@ -1,11 +1,13 @@
 const https = require("https");
 
 async function sendMail({ to, subject, text }) {
-  const apiKey = process.env.BREVO_API_KEY || process.env.BREVO_SMTP_KEY || "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";
+  const apiKey = process.env.BREVO_API_KEY || process.env.BREVO_SMTP_KEY;
   if (!apiKey) {
-    console.log("📧 No BREVO_API_KEY — skipping email");
-    return { skipped: true };
+    console.error("📧 No BREVO_API_KEY set in environment — cannot send email");
+    return { skipped: true, error: "BREVO_API_KEY not configured" };
   }
+  
+  console.log("📧 Attempting to send email to:", to, "| Subject:", subject);
 
   const from = process.env.EMAIL_FROM || "JolliReserve <noreply@jollireserve.com>";
   // Parse "Name <email>" format
