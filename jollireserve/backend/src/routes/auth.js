@@ -2,7 +2,6 @@ const express = require("express");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { v4: uuid } = require("uuid");
-const { dbConn } = require("../db");
 const { getDb } = require("../firebase");
 const { isoNow } = require("../utils/time");
 const { sendMail } = require("../utils/email");
