@@ -202,6 +202,7 @@ router.post("/logout", requireAuth, async (req, res) => {
 // ── User Activity History ─────────────────────────────────
 router.get("/activity", requireAuth, async (req, res) => {
   try {
+    console.log("[Activity] Looking up user_id:", req.user?.id);
     const db = getDb();
     const snapshot = await db.collection("activity_logs")
       .where("user_id", "==", req.user.id)
@@ -210,8 +211,10 @@ router.get("/activity", requireAuth, async (req, res) => {
       .get();
     
     const activity = snapshot.docs.map(doc => doc.data());
+    console.log("[Activity] Found", activity.length, "activities for user", req.user?.id);
     res.json({ activity });
   } catch (err) {
+    console.error("[Activity] Error:", err.message);
     res.status(500).json({ error: err.message });
   }
 });

@@ -29,13 +29,16 @@ export default function Queue({ user }) {
 
   async function join() {
     try {
+      console.log("[Queue Join] User data:", { id: user?.id, email: user?.email, name: user?.name });
       const payload = {
         party_size: Number(party),
         name: name || (user?.name || "Guest"),
         user_id: user?.id,
         email: user?.email,
       };
+      console.log("[Queue Join] Sending payload:", payload);
       const data  = await api.queueJoin(payload);
+      console.log("[Queue Join] Response:", data);
       const entry = data.entry;
 
       setMyEntry(entry);

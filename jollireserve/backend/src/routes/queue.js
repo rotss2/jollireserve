@@ -35,6 +35,8 @@ async function logActivity(userId, action, details = {}) {
 router.post("/join", async (req, res) => {
   try {
     const { party_size, name, user_id, email } = req.body || {};
+    console.log("[Queue Join] Received:", { party_size, user_id, email, name });
+    
     if (!party_size) return res.status(400).json({ error: "party_size required" });
 
     const db = getDb();
@@ -53,7 +55,9 @@ router.post("/join", async (req, res) => {
       seated_at: null
     };
     
+    console.log("[Queue Join] Saving entry:", entryData);
     await queueCol.doc(id).set(entryData);
+    console.log("[Queue Join] Saved successfully with id:", id);
 
     // Log activity if user_id provided
     if (user_id) {
@@ -127,6 +131,8 @@ router.get("/history", requireAuth, async (req, res) => {
     const db = getDb();
     const queueCol = db.collection("queue_entries");
     
+    console.log("[Queue History] Looking up user_id:", req.user?.id);
+    
     // Get all entries for this user (including seated, cancelled, etc.)
     const snapshot = await queueCol
       .where("user_id", "==", req.user.id)
@@ -135,9 +141,10 @@ router.get("/history", requireAuth, async (req, res) => {
       .get();
     
     const entries = snapshot.docs.map(doc => doc.data());
+    console.log("[Queue History] Found", entries.length, "entries for user", req.user?.id);
     res.json({ entries });
   } catch (err) {
-    console.error("Queue history error:", err.message);
+    console.error("[Queue History] Error:", err.message);
     res.status(500).json({ error: "Failed to fetch queue history: " + err.message });
   }
 });

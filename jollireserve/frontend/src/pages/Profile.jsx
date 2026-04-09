@@ -80,23 +80,31 @@ export default function Profile({ user }) {
   const err = (e) => setToast({ message: e?.response?.data?.error || e.message || "Error", type: "error" });
 
   useEffect(() => {
-    loadData();
-  }, []);
+    if (user?.id) {
+      loadData();
+    }
+  }, [user?.id]);
 
   async function loadData() {
     setLoading(true);
     try {
+      console.log("[Profile] Loading data for user:", user?.id);
       const [activityData, reservationsData, queueData] = await Promise.all([
-        api.getActivity?.().catch(() => ({ activity: [] })),
-        api.myReservations?.().catch(() => ({ reservations: [] })),
-        api.queueHistory?.().catch(() => ({ entries: [] }))
+        api.getActivity?.().catch((e) => { console.error("[Profile] Activity error:", e); return { activity: [] }; }),
+        api.myReservations?.().catch((e) => { console.error("[Profile] Reservations error:", e); return { reservations: [] }; }),
+        api.queueHistory?.().catch((e) => { console.error("[Profile] Queue error:", e); return { entries: [] }; })
       ]);
+      console.log("[Profile] Loaded:", { 
+        activity: activityData?.activity?.length || 0, 
+        reservations: reservationsData?.reservations?.length || 0, 
+        queue: queueData?.entries?.length || 0 
+      });
       setActivity(activityData?.activity || []);
       setReservations(reservationsData?.reservations || []);
-      // Queue history now comes from dedicated endpoint (includes seated, cancelled)
       setQueueHistory(queueData?.entries || []);
     } catch (e) {
-      console.error("Failed to load profile data:", e);
+      console.error("[Profile] Failed to load profile data:", e);
+      err("Failed to load profile data");
     } finally {
       setLoading(false);
     }
