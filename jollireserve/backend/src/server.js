@@ -9,6 +9,7 @@ const reservationRoutes = require("./routes/reservations");
 const queueRoutes = require("./routes/queue");
 const tableRoutes = require("./routes/tables");
 const adminRoutes = require("./routes/admin");
+const staffRoutes = require("./routes/staff");
 const http = require("http");
 const { initWebSocket } = require("./ws");
 const bcrypt = require("bcryptjs");
@@ -56,6 +57,7 @@ app.use("/api/reservations", reservationRoutes);
 app.use("/api/queue", queueRoutes);
 app.use("/api/tables", tableRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/staff", staffRoutes);
 
 // Error handler
 app.use((err, req, res, next) => {

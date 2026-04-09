@@ -1,253 +1,287 @@
 const express = require("express");
 const bcrypt = require("bcryptjs");
 const { v4: uuid } = require("uuid");
-const { dbConn } = require("../db");
+const { getDb } = require("../firebase");
 const { requireAuth, requireRole } = require("../middleware/auth");
 const { toDayISO, isoNow } = require("../utils/time");
 
 const router = express.Router();
-router.use(requireAuth, requireRole(["admin", "staff"]));
 
-// ── Analytics ─────────────────────────────────────────────
-
-router.get("/analytics/summary", async (req, res) => {
-  try {
-    const db = dbConn();
-    const today = toDayISO();
-    const reservationsToday = (await db.prepare("SELECT COUNT(*) AS c FROM reservations WHERE date=?").get(today)).c;
-    const activeQueue = (await db.prepare("SELECT COUNT(*) AS c FROM queue_entries WHERE status IN ('waiting','called')").get()).c;
-    const availableTables = (await db.prepare("SELECT COUNT(*) AS c FROM tables WHERE is_active=1").get()).c;
-    res.json({ today, reservationsToday, activeQueue, availableTables });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-router.get("/analytics/reservations-by-day", async (req, res) => {
-  try {
-    const db = dbConn();
-    const from = req.query.from || toDayISO(new Date(Date.now() - 6 * 24 * 3600 * 1000));
-    const to = req.query.to || toDayISO();
-    const rows = await db.prepare(`
-      SELECT date, COUNT(*) AS count FROM reservations
-      WHERE date BETWEEN ? AND ? GROUP BY date ORDER BY date ASC
-    `).all(from, to);
-    res.json({ from, to, rows });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-router.get("/analytics/peak-hours", async (req, res) => {
-  try {
-    const db = dbConn();
-    const date = req.query.date || toDayISO();
-    const rows = await db.prepare(`
-      SELECT time, COUNT(*) AS count FROM reservations
-      WHERE date=? GROUP BY time ORDER BY time ASC
-    `).all(date);
-    res.json({ date, rows });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-router.get("/analytics/table-utilization", async (req, res) => {
-  try {
-    const db = dbConn();
-    const from = req.query.from || toDayISO(new Date(Date.now() - 6 * 24 * 3600 * 1000));
-    const to = req.query.to || toDayISO();
-    const assigned = (await db.prepare(`
-      SELECT COUNT(*) AS c FROM reservations
-      WHERE date BETWEEN ? AND ? AND table_id IS NOT NULL AND status IN ('confirmed','checked_in','completed')
-    `).get(from, to)).c;
-    const tables = (await db.prepare("SELECT COUNT(*) AS c FROM tables WHERE is_active=1").get()).c;
-    res.json({ from, to, assigned, tables, utilization: tables ? assigned / tables : 0 });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// ── Tables ────────────────────────────────────────────────
-
-router.get("/tables", async (req, res) => {
-  try {
-    const tables = await dbConn().prepare("SELECT * FROM tables ORDER BY name ASC").all();
-    res.json({ tables });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-router.post("/tables", requireRole(["admin"]), async (req, res) => {
-  try {
-    const { name, area, capacity } = req.body;
-    if (!name || !area || !capacity) return res.status(400).json({ error: "name, area, capacity required" });
-    const id = uuid();
-    await dbConn().prepare("INSERT INTO tables (id, name, area, capacity, is_active) VALUES (?, ?, ?, ?, 1)")
-      .run(id, name, area, Number(capacity));
-    res.json({ ok: true, id });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-router.patch("/tables/:id", requireRole(["admin"]), async (req, res) => {
-  try {
-    const { name, area, capacity, is_active } = req.body;
-    const db = dbConn();
-    if (name !== undefined) await db.prepare("UPDATE tables SET name=? WHERE id=?").run(name, req.params.id);
-    if (area !== undefined) await db.prepare("UPDATE tables SET area=? WHERE id=?").run(area, req.params.id);
-    if (capacity !== undefined) await db.prepare("UPDATE tables SET capacity=? WHERE id=?").run(Number(capacity), req.params.id);
-    if (is_active !== undefined) await db.prepare("UPDATE tables SET is_active=? WHERE id=?").run(Number(is_active), req.params.id);
-    res.json({ ok: true });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-router.delete("/tables/:id", requireRole(["admin"]), async (req, res) => {
-  try {
-    await dbConn().prepare("DELETE FROM tables WHERE id=?").run(req.params.id);
-    res.json({ ok: true });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// ── Queue ─────────────────────────────────────────────────
-
-router.get("/queue/active", async (req, res) => {
-  try {
-    const entries = await dbConn().prepare(`
-      SELECT q.*, u.name AS user_name, u.email AS user_email
-      FROM queue_entries q LEFT JOIN users u ON q.user_id = u.id
-      WHERE q.status IN ('waiting','called') ORDER BY q.created_at ASC
-    `).all();
-    res.json({ entries });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-router.post("/queue/walk-in", async (req, res) => {
-  try {
-    const { name, party_size } = req.body;
-    if (!party_size) return res.status(400).json({ error: "party_size required" });
-    const id = uuid();
-    await dbConn().prepare("INSERT INTO queue_entries (id, name, party_size, status, created_at) VALUES (?, ?, ?, 'waiting', ?)")
-      .run(id, name || "Walk-in", Number(party_size), isoNow());
-    res.json({ ok: true, id });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-router.post("/queue/:id/call", async (req, res) => {
-  try {
-    await dbConn().prepare("UPDATE queue_entries SET status='called', called_at=? WHERE id=?").run(isoNow(), req.params.id);
-    res.json({ ok: true });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-router.post("/queue/:id/seated", async (req, res) => {
-  try {
-    await dbConn().prepare("UPDATE queue_entries SET status='seated', seated_at=? WHERE id=?").run(isoNow(), req.params.id);
-    res.json({ ok: true });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-router.post("/queue/:id/cancel", async (req, res) => {
-  try {
-    await dbConn().prepare("UPDATE queue_entries SET status='cancelled' WHERE id=?").run(req.params.id);
-    res.json({ ok: true });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// ── Reservations ──────────────────────────────────────────
-
-router.get("/reservations", async (req, res) => {
-  try {
-    const reservations = await dbConn().prepare(`
-      SELECT r.*, u.name AS user_name, u.email AS user_email, t.name AS table_name
-      FROM reservations r
-      LEFT JOIN users u ON r.user_id = u.id
-      LEFT JOIN tables t ON r.table_id = t.id
-      ORDER BY r.date DESC, r.time DESC LIMIT 100
-    `).all();
-    res.json({ reservations });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-router.post("/reservations/:id/checkin", async (req, res) => {
-  try {
-    await dbConn().prepare("UPDATE reservations SET status='checked_in' WHERE id=?").run(req.params.id);
-    res.json({ ok: true });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-router.post("/reservations/:id/complete", async (req, res) => {
-  try {
-    await dbConn().prepare("UPDATE reservations SET status='completed' WHERE id=?").run(req.params.id);
-    res.json({ ok: true });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-router.post("/reservations/:id/cancel", async (req, res) => {
-  try {
-    await dbConn().prepare("UPDATE reservations SET status='cancelled' WHERE id=?").run(req.params.id);
-    res.json({ ok: true });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-router.delete("/reservations/:id", requireRole(["admin"]), async (req, res) => {
-  try {
-    await dbConn().prepare("DELETE FROM reservations WHERE id=?").run(req.params.id);
-    res.json({ ok: true });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
+// Apply auth middleware - admin only for user management
+router.use(requireAuth, requireRole(["admin"]));
 
 // ── Users (admin only) ────────────────────────────────────
 
-router.get("/users", requireRole(["admin"]), async (req, res) => {
+// Get all users
+router.get("/users", async (req, res) => {
   try {
-    const users = await dbConn().prepare(
-      "SELECT id, email, name, role, is_verified, created_at FROM users ORDER BY created_at DESC"
-    ).all();
+    const db = getDb();
+    const usersCol = db.collection("users");
+    const snapshot = await usersCol.orderBy("created_at", "desc").get();
+    const users = snapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: data.id,
+        email: data.email,
+        name: data.name,
+        role: data.role,
+        is_verified: data.is_verified,
+        created_at: data.created_at
+      };
+    });
     res.json({ users });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) {
+    console.error("Get users error:", e.message);
+    res.status(500).json({ error: e.message });
+  }
 });
 
-router.patch("/users/:id/role", requireRole(["admin"]), async (req, res) => {
+// Create new user (admin can create users directly)
+router.post("/users", async (req, res) => {
+  try {
+    const { email, password, name, role = "customer" } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ error: "Email and password required" });
+    }
+
+    const db = getDb();
+    const usersCol = db.collection("users");
+
+    // Check if email already exists
+    const existing = await usersCol.where("email", "==", email.toLowerCase()).limit(1).get();
+    if (!existing.empty) {
+      return res.status(409).json({ error: "Email already registered" });
+    }
+
+    const id = uuid();
+    const hash = bcrypt.hashSync(password, 10);
+
+    const userData = {
+      id,
+      email: email.toLowerCase(),
+      password_hash: hash,
+      name: name || "",
+      role: role,
+      is_verified: 1, // Admin-created users are pre-verified
+      verification_code_hash: null,
+      verification_code_expires_at: null,
+      created_at: isoNow()
+    };
+
+    await usersCol.doc(id).set(userData);
+
+    res.json({ 
+      ok: true, 
+      user: {
+        id: userData.id,
+        email: userData.email,
+        name: userData.name,
+        role: userData.role,
+        is_verified: userData.is_verified,
+        created_at: userData.created_at
+      }
+    });
+  } catch (e) {
+    console.error("Create user error:", e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Update user role
+router.patch("/users/:id/role", async (req, res) => {
   try {
     const { role } = req.body;
-    if (!["customer", "staff", "admin"].includes(role))
+    if (!["customer", "staff", "admin"].includes(role)) {
       return res.status(400).json({ error: "Invalid role" });
-    await dbConn().prepare("UPDATE users SET role=? WHERE id=?").run(role, req.params.id);
+    }
+
+    const db = getDb();
+    await db.collection("users").doc(req.params.id).update({ role });
     res.json({ ok: true });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) {
+    console.error("Update role error:", e.message);
+    res.status(500).json({ error: e.message });
+  }
 });
 
-router.patch("/users/:id/suspend", requireRole(["admin"]), async (req, res) => {
+// Suspend/unsuspend user
+router.patch("/users/:id/suspend", async (req, res) => {
   try {
     const { suspended } = req.body;
-    await dbConn().prepare("UPDATE users SET is_verified=? WHERE id=?").run(suspended ? 0 : 1, req.params.id);
+    const db = getDb();
+    await db.collection("users").doc(req.params.id).update({
+      is_verified: suspended ? 0 : 1
+    });
     res.json({ ok: true });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) {
+    console.error("Suspend user error:", e.message);
+    res.status(500).json({ error: e.message });
+  }
 });
 
-router.patch("/users/:id/password", requireRole(["admin"]), async (req, res) => {
+// Reset user password
+router.patch("/users/:id/password", async (req, res) => {
   try {
     const { password } = req.body;
     if (!password) return res.status(400).json({ error: "password required" });
+
     const hash = bcrypt.hashSync(password, 10);
-    await dbConn().prepare("UPDATE users SET password_hash=? WHERE id=?").run(hash, req.params.id);
+    const db = getDb();
+    await db.collection("users").doc(req.params.id).update({
+      password_hash: hash
+    });
     res.json({ ok: true });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) {
+    console.error("Reset password error:", e.message);
+    res.status(500).json({ error: e.message });
+  }
 });
 
-router.delete("/users/:id", requireRole(["admin"]), async (req, res) => {
+// Delete user
+router.delete("/users/:id", async (req, res) => {
   try {
-    if (req.user.id === req.params.id)
+    if (req.user.id === req.params.id) {
       return res.status(400).json({ error: "Cannot delete yourself" });
-    await dbConn().prepare("DELETE FROM users WHERE id=?").run(req.params.id);
+    }
+
+    const db = getDb();
+    await db.collection("users").doc(req.params.id).delete();
     res.json({ ok: true });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) {
+    console.error("Delete user error:", e.message);
+    res.status(500).json({ error: e.message });
+  }
 });
 
-router.get("/users/:id/history", requireRole(["admin"]), async (req, res) => {
+// Get user history (reservations and queue entries)
+router.get("/users/:id/history", async (req, res) => {
   try {
-    const db = dbConn();
-    const reservations = await db.prepare(`
-      SELECT r.*, t.name AS table_name FROM reservations r
-      LEFT JOIN tables t ON r.table_id = t.id
-      WHERE r.user_id=? ORDER BY r.created_at DESC
-    `).all(req.params.id);
-    const queue = await db.prepare(
-      "SELECT * FROM queue_entries WHERE user_id=? ORDER BY created_at DESC"
-    ).all(req.params.id);
+    const db = getDb();
+
+    // Get user's reservations
+    const reservationsSnapshot = await db.collection("reservations")
+      .where("user_id", "==", req.params.id)
+      .orderBy("created_at", "desc")
+      .get();
+    const reservations = reservationsSnapshot.docs.map(doc => doc.data());
+
+    // Get user's queue entries
+    const queueSnapshot = await db.collection("queue_entries")
+      .where("user_id", "==", req.params.id)
+      .orderBy("created_at", "desc")
+      .get();
+    const queue = queueSnapshot.docs.map(doc => doc.data());
+
     res.json({ reservations, queue });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) {
+    console.error("Get user history error:", e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── Analytics (admin only) ─────────────────────────────────
+
+router.get("/analytics/summary", async (req, res) => {
+  try {
+    const db = getDb();
+    const today = toDayISO();
+
+    // Count today's reservations
+    const reservationsSnapshot = await db.collection("reservations")
+      .where("date", "==", today)
+      .get();
+    const reservationsToday = reservationsSnapshot.size;
+
+    // Count active queue
+    const queueSnapshot = await db.collection("queue_entries")
+      .where("status", "in", ["waiting", "called"])
+      .get();
+    const activeQueue = queueSnapshot.size;
+
+    // Count available tables
+    const tablesSnapshot = await db.collection("tables")
+      .where("is_active", "==", 1)
+      .get();
+    const availableTables = tablesSnapshot.size;
+
+    res.json({ today, reservationsToday, activeQueue, availableTables });
+  } catch (e) {
+    console.error("Analytics summary error:", e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── Tables (admin only - full CRUD) ───────────────────────
+
+// Get all tables
+router.get("/tables", async (req, res) => {
+  try {
+    const db = getDb();
+    const snapshot = await db.collection("tables").orderBy("name").get();
+    const tables = snapshot.docs.map(doc => doc.data());
+    res.json({ tables });
+  } catch (e) {
+    console.error("Get tables error:", e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Create table
+router.post("/tables", async (req, res) => {
+  try {
+    const { name, area, capacity } = req.body;
+    if (!name || !area || !capacity) {
+      return res.status(400).json({ error: "name, area, capacity required" });
+    }
+
+    const db = getDb();
+    const id = uuid();
+    const tableData = {
+      id,
+      name,
+      area,
+      capacity: Number(capacity),
+      is_active: 1
+    };
+
+    await db.collection("tables").doc(id).set(tableData);
+    res.json({ ok: true, id });
+  } catch (e) {
+    console.error("Create table error:", e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Update table
+router.patch("/tables/:id", async (req, res) => {
+  try {
+    const { name, area, capacity, is_active } = req.body;
+    const db = getDb();
+
+    const updates = {};
+    if (name !== undefined) updates.name = name;
+    if (area !== undefined) updates.area = area;
+    if (capacity !== undefined) updates.capacity = Number(capacity);
+    if (is_active !== undefined) updates.is_active = Number(is_active);
+
+    await db.collection("tables").doc(req.params.id).update(updates);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error("Update table error:", e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Delete table
+router.delete("/tables/:id", async (req, res) => {
+  try {
+    const db = getDb();
+    await db.collection("tables").doc(req.params.id).delete();
+    res.json({ ok: true });
+  } catch (e) {
+    console.error("Delete table error:", e.message);
+    res.status(500).json({ error: e.message });
+  }
 });
 
 module.exports = router;
