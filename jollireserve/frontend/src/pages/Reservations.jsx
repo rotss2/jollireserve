@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from "react";
 import Toast from "../components/Toast";
 import { api } from "../lib/api";
 import { connectWS, onWSMessage } from "../lib/ws";
+import { useSettings } from "../contexts/SettingsContext";
 import QRCode from "qrcode";
 
 function downloadBlob(blob, filename) {
@@ -37,6 +38,9 @@ function ReservationQR({ id }) {
 }
 
 export default function Reservations({ user }) {
+  const { settings, isValidPartySize, getPartySizeError } = useSettings();
+  const maxPartySize = settings?.max_party_size || 12;
+  
   const [date, setDate]   = useState("");
   const [time, setTime]   = useState("");
   const [party, setParty] = useState(2);
@@ -45,6 +49,7 @@ export default function Reservations({ user }) {
   const [list, setList]   = useState([]);
   const [toast, setToast] = useState({ message: "", type: "success" });
   const [expandedQR, setExpandedQR] = useState(null); // reservation id with QR open
+  const [partyError, setPartyError] = useState(null);
 
   async function load() {
     const data = await api.myReservations();
@@ -60,7 +65,19 @@ export default function Reservations({ user }) {
     return () => off();
   }, []);
 
+  // Validate party size in real-time
+  useEffect(() => {
+    const error = getPartySizeError(party);
+    setPartyError(error);
+  }, [party, settings]);
+
   async function createReservation() {
+    // Check max party size before submitting
+    if (!isValidPartySize(party)) {
+      setToast({ message: getPartySizeError(party), type: "error" });
+      return;
+    }
+
     try {
       await api.createReservation({
         date, time, party_size: Number(party),
@@ -71,7 +88,12 @@ export default function Reservations({ user }) {
       setDate(""); setTime(""); setReq("");
       await load();
     } catch (e) {
-      setToast({ message: e.message, type: "error" });
+      // Check if error is about max party size
+      if (e?.response?.data?.max_party_size) {
+        setToast({ message: e.response.data.error, type: "error" });
+      } else {
+        setToast({ message: e.message || "Failed to create reservation", type: "error" });
+      }
     }
   }
 

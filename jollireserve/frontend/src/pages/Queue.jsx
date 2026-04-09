@@ -4,14 +4,19 @@ import Toast from "../components/Toast";
 import BeeMascot from "../components/BeeMascot";
 import { api } from "../lib/api";
 import { connectWS, onWSMessage } from "../lib/ws";
+import { useSettings } from "../contexts/SettingsContext";
 
 export default function Queue({ user }) {
+  const { settings, isValidPartySize, getPartySizeError } = useSettings();
+  const maxPartySize = settings?.max_party_size || 12;
+  
   const [party, setParty]     = useState(2);
   const [name, setName]       = useState("");
   const [entries, setEntries] = useState([]);
   const [toast, setToast]     = useState({ message: "", type: "success" });
   const [qrDataUrl, setQrDataUrl] = useState("");
   const [myEntry, setMyEntry]     = useState(null);
+  const [partyError, setPartyError] = useState(null);
 
   async function load() {
     const data = await api.queueActive();
@@ -27,7 +32,19 @@ export default function Queue({ user }) {
     return () => off();
   }, []);
 
+  // Validate party size in real-time
+  useEffect(() => {
+    const error = getPartySizeError(party);
+    setPartyError(error);
+  }, [party, settings]);
+
   async function join() {
+    // Check max party size before submitting
+    if (!isValidPartySize(party)) {
+      setToast({ message: getPartySizeError(party), type: "error" });
+      return;
+    }
+
     try {
       console.log("[Queue Join] User data:", { id: user?.id, email: user?.email, name: user?.name });
       const payload = {
@@ -51,7 +68,12 @@ export default function Queue({ user }) {
 
       await load();
     } catch (e) {
-      setToast({ message: e.message, type: "error" });
+      // Check if error is about max party size
+      if (e?.response?.data?.max_party_size) {
+        setToast({ message: e.response.data.error, type: "error" });
+      } else {
+        setToast({ message: e.message || "Failed to join queue", type: "error" });
+      }
     }
   }
 
