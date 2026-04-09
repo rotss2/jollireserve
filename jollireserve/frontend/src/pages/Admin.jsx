@@ -658,12 +658,24 @@ export default function Admin({ user }) {
           </div>
 
           {/* Save Button */}
-          <button className="btn btn-red" onClick={() => ok("Settings saved (frontend only - backend update needed)")}>
+          <button className="btn btn-red" onClick={async () => {
+            try {
+              await api.adminUpdateSettings({
+                max_party_size: settings.max_party_size,
+                queue_enabled: settings.queue_enabled,
+                reservations_enabled: settings.reservations_enabled,
+                email_notifications: settings.email_notifications
+              });
+              ok("Settings saved successfully! Changes will apply immediately.");
+            } catch (e) {
+              err(e);
+            }
+          }}>
             💾 Save Settings
           </button>
 
           <div className="mt-4 text-xs" style={{ color: "var(--text-muted)" }}>
-            Note: Settings are currently stored locally. Connect to backend API to persist changes.
+            Settings are saved to the database and broadcast to all users in real-time.
           </div>
         </div>
       )}
