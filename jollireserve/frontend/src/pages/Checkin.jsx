@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { QRCodeCanvas } from "qrcode.react";
 import Toast from "../components/Toast";
+import SuccessAnimation from "../components/SuccessAnimation";
 import { api } from "../lib/api";
 import { getToken } from "../lib/token";
 
@@ -10,6 +11,7 @@ export default function Checkin() {
   const url = window.location.href;
   const [toast, setToast] = useState({ message:"", type:"success" });
   const [loading, setLoading] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
 
   const isLoggedIn = !!getToken();
 
@@ -17,7 +19,7 @@ export default function Checkin() {
     setLoading(true);
     try{
       await api.adminCheckinReservation(id);
-      setToast({ message:"Reservation checked-in!", type:"success" });
+      setShowSuccess(true);
     }catch(e){
       setToast({ message: e?.response?.data?.error || "Check-in failed (staff/admin only).", type:"error" });
     }finally{
@@ -27,6 +29,15 @@ export default function Checkin() {
 
   return (
     <div className="mx-auto max-w-3xl px-4 pb-16">
+      {showSuccess && (
+        <SuccessAnimation 
+          message="Check-in Successful!" 
+          onComplete={() => {
+            setShowSuccess(false);
+            setToast({ message:"Reservation checked-in!", type:"success" });
+          }}
+        />
+      )}
       <Toast message={toast.message} type={toast.type} onClose={()=>setToast({message:"",type:"success"})} />
 
       <div className="card p-8">
