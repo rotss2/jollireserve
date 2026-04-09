@@ -2,6 +2,7 @@ const { initializeApp, cert } = require('firebase-admin/app');
 const { getFirestore } = require('firebase-admin/firestore');
 const dotenv = require('dotenv');
 const path = require('path');
+const fs = require('fs');
 
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
 
@@ -12,34 +13,47 @@ let db;
 function initFirebase() {
   if (app) return { app, db };
 
-  // Check for service account or application default credentials
-  if (process.env.FIREBASE_SERVICE_ACCOUNT) {
-    // Use service account JSON
-    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-    app = initializeApp({
-      credential: cert(serviceAccount)
-    });
-  } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
-    // Use credentials file path
-    app = initializeApp({
-      credential: cert(process.env.GOOGLE_APPLICATION_CREDENTIALS)
-    });
-  } else {
-    // Application Default Credentials (for GCP environments)
+  // Try to load service account from file
+  let serviceAccountPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+  
+  // If relative path, resolve to absolute
+  if (serviceAccountPath && !path.isAbsolute(serviceAccountPath)) {
+    serviceAccountPath = path.join(__dirname, '..', serviceAccountPath);
+  }
+
+  if (serviceAccountPath && fs.existsSync(serviceAccountPath)) {
     try {
-      app = initializeApp();
+      const serviceAccount = require(serviceAccountPath);
+      app = initializeApp({
+        credential: cert(serviceAccount),
+        projectId: serviceAccount.project_id
+      });
+      console.log('✅ Firebase initialized with service account file');
     } catch (e) {
-      console.error('Firebase initialization failed:', e.message);
-      throw new Error(
-        'Firebase not configured. Please set either:\n' +
-        '1. FIREBASE_SERVICE_ACCOUNT (JSON string) in .env, or\n' +
-        '2. GOOGLE_APPLICATION_CREDENTIALS (path to service account file) in .env'
-      );
+      console.error('Failed to load service account file:', e.message);
+      throw e;
     }
+  } else if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+    // Fallback to inline JSON
+    try {
+      const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+      app = initializeApp({
+        credential: cert(serviceAccount),
+        projectId: serviceAccount.project_id
+      });
+      console.log('✅ Firebase initialized with env variable');
+    } catch (e) {
+      console.error('Failed to parse FIREBASE_SERVICE_ACCOUNT:', e.message);
+      throw e;
+    }
+  } else {
+    throw new Error(
+      'Firebase not configured. Please set GOOGLE_APPLICATION_CREDENTIALS in .env pointing to serviceAccountKey.json'
+    );
   }
 
   db = getFirestore(app);
-  console.log('✅ Firebase Firestore initialized');
+  console.log('✅ Firestore connected');
   return { app, db };
 }
 
