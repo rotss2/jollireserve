@@ -9,7 +9,9 @@ export default function Navbar({ user, onLogout }) {
   const [menuOpen, setMenuOpen] = useState(false);
 
   const active    = (path) => loc.pathname === path ? "bg-[var(--red)] text-white" : "hover:bg-black/5";
-  const showAdmin = user && (user.role === "admin" || user.role === "staff");
+  const isAdmin   = user?.role === "admin";
+  const isStaff   = user?.role === "staff";
+  const showAdmin = isAdmin || isStaff;
 
   if (loc.pathname === "/tv") return null;
 
@@ -25,9 +27,15 @@ export default function Navbar({ user, onLogout }) {
 
         {/* Desktop nav links */}
         <div className="ml-auto hidden md:flex items-center gap-2">
-          <Link className={`px-4 py-2 rounded-full text-sm font-semibold ${active("/")}`} to="/">Home</Link>
-          <Link className={`px-4 py-2 rounded-full text-sm font-semibold ${active("/reservations")}`} to="/reservations">Reservations</Link>
-          <Link className={`px-4 py-2 rounded-full text-sm font-semibold ${active("/queue")}`} to="/queue">Queue</Link>
+          {/* Customers and guests see Home, Reservations, Queue */}
+          {!isAdmin && (
+            <>
+              <Link className={`px-4 py-2 rounded-full text-sm font-semibold ${active("/")}`} to="/">Home</Link>
+              <Link className={`px-4 py-2 rounded-full text-sm font-semibold ${active("/reservations")}`} to="/reservations">Reservations</Link>
+              <Link className={`px-4 py-2 rounded-full text-sm font-semibold ${active("/queue")}`} to="/queue">Queue</Link>
+            </>
+          )}
+          {/* Staff and Admin see operational links */}
           {showAdmin && <Link className={`px-4 py-2 rounded-full text-sm font-semibold ${active("/tv")}`} to="/tv">TV</Link>}
           {showAdmin && <Link className={`px-4 py-2 rounded-full text-sm font-semibold ${active("/scan")}`} to="/scan">Scan</Link>}
           {showAdmin && <Link className={`px-4 py-2 rounded-full text-sm font-semibold ${active("/admin")}`} to="/admin">Admin</Link>}
@@ -92,9 +100,13 @@ export default function Navbar({ user, onLogout }) {
           }}
           className="md:hidden"
         >
-          <Link className={`px-4 py-2 rounded-full text-sm font-semibold ${active("/")}`} to="/" onClick={() => setMenuOpen(false)}>Home</Link>
-          <Link className={`px-4 py-2 rounded-full text-sm font-semibold ${active("/reservations")}`} to="/reservations" onClick={() => setMenuOpen(false)}>Reservations</Link>
-          <Link className={`px-4 py-2 rounded-full text-sm font-semibold ${active("/queue")}`} to="/queue" onClick={() => setMenuOpen(false)}>Queue</Link>
+          {!isAdmin && (
+            <>
+              <Link className={`px-4 py-2 rounded-full text-sm font-semibold ${active("/")}`} to="/" onClick={() => setMenuOpen(false)}>Home</Link>
+              <Link className={`px-4 py-2 rounded-full text-sm font-semibold ${active("/reservations")}`} to="/reservations" onClick={() => setMenuOpen(false)}>Reservations</Link>
+              <Link className={`px-4 py-2 rounded-full text-sm font-semibold ${active("/queue")}`} to="/queue" onClick={() => setMenuOpen(false)}>Queue</Link>
+            </>
+          )}
           {showAdmin && <Link className={`px-4 py-2 rounded-full text-sm font-semibold ${active("/tv")}`} to="/tv" onClick={() => setMenuOpen(false)}>TV</Link>}
           {showAdmin && <Link className={`px-4 py-2 rounded-full text-sm font-semibold ${active("/scan")}`} to="/scan" onClick={() => setMenuOpen(false)}>Scan</Link>}
           {showAdmin && <Link className={`px-4 py-2 rounded-full text-sm font-semibold ${active("/admin")}`} to="/admin" onClick={() => setMenuOpen(false)}>Admin</Link>}
