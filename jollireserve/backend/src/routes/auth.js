@@ -234,12 +234,48 @@ router.post("/profile", requireAuth, async (req, res) => {
   }
 });
 
-// ── Change Password ─────────────────────────────────────
+// ── Request Password Change OTP ───────────────────────────
+router.post("/request-password-otp", requireAuth, async (req, res) => {
+  try {
+    const db = getDb();
+    const userDoc = await db.collection("users").doc(req.user.id).get();
+    if (!userDoc.exists) return res.status(404).json({ error: "User not found" });
+    
+    const user = userDoc.data();
+    
+    // Generate OTP
+    const code = generateCode();
+    const codeHash = hashCode(code);
+    const codeExp = expiresAt(15); // 15 minutes
+    
+    // Store OTP hash and expiry
+    await db.collection("users").doc(req.user.id).update({
+      password_otp_hash: codeHash,
+      password_otp_expires_at: codeExp
+    });
+    
+    // Send email
+    await sendMail({
+      to: user.email,
+      subject: "JolliReserve: Password Change Verification",
+      text: `Hello ${user.name || "Guest"},\n\nYou requested to change your password.\n\nYour verification code is: ${code}\n\nThis code expires in 15 minutes.\n\nIf you did not request this, please ignore this email.\n\nThanks,\nJolliReserve`,
+    });
+    
+    console.log("Password change OTP sent to:", user.email, "| code:", code);
+    res.json({ ok: true, message: "Verification code sent to your email" });
+    
+  } catch (err) {
+    console.error("Request password OTP error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── Change Password (requires OTP verification) ─────────────
 router.post("/password", requireAuth, async (req, res) => {
   try {
-    const { current_password, new_password } = req.body || {};
-    if (!current_password || !new_password) {
-      return res.status(400).json({ error: "Current and new password required" });
+    const { otp, new_password } = req.body || {};
+    if (!otp || !new_password) {
+      return res.status(400).json({ error: "OTP and new password required" });
     }
     if (new_password.length < 6) {
       return res.status(400).json({ error: "Password must be at least 6 characters" });
@@ -250,13 +286,31 @@ router.post("/password", requireAuth, async (req, res) => {
     if (!userDoc.exists) return res.status(404).json({ error: "User not found" });
     
     const user = userDoc.data();
-    const valid = await bcrypt.compare(current_password, user.password_hash);
-    if (!valid) return res.status(401).json({ error: "Current password is incorrect" });
     
+    // Verify OTP
+    if (!user.password_otp_hash || !user.password_otp_expires_at) {
+      return res.status(400).json({ error: "No password change request found. Please request a new code." });
+    }
+    
+    if (isExpired(user.password_otp_expires_at)) {
+      return res.status(400).json({ error: "CODE_EXPIRED", message: "Code expired. Please request a new one." });
+    }
+    
+    const otpValid = await bcrypt.compare(otp, user.password_otp_hash);
+    if (!otpValid) {
+      return res.status(401).json({ error: "Invalid verification code" });
+    }
+    
+    // Update password and clear OTP
     const hash = bcrypt.hashSync(new_password, 10);
-    await db.collection("users").doc(req.user.id).update({ password_hash: hash });
+    await db.collection("users").doc(req.user.id).update({ 
+      password_hash: hash,
+      password_otp_hash: null,
+      password_otp_expires_at: null
+    });
+    
     await logActivity(req.user.id, "password_changed", {});
-    res.json({ ok: true });
+    res.json({ ok: true, message: "Password changed successfully" });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

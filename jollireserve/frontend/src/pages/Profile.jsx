@@ -50,6 +50,14 @@ export default function Profile({ user }) {
   const [loading, setLoading] = useState(true);
   const [editMode, setEditMode] = useState(false);
   const [activeSection, setActiveSection] = useState("basic");
+  
+  // Password change modal state
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [passwordStep, setPasswordStep] = useState("request"); // request, verify, success
+  const [otpCode, setOtpCode] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordLoading, setPasswordLoading] = useState(false);
   const [profile, setProfile] = useState({
     name: user?.name || "",
     email: user?.email || "",
@@ -142,19 +150,64 @@ export default function Profile({ user }) {
     }
   }
 
-  async function changePassword() {
-    const current = prompt("Enter current password:");
-    if (!current) return;
-    const newPass = prompt("Enter new password (min 6 chars):");
-    if (!newPass || newPass.length < 6) {
+  function openPasswordModal() {
+    setShowPasswordModal(true);
+    setPasswordStep("request");
+    setOtpCode("");
+    setNewPassword("");
+    setConfirmPassword("");
+  }
+
+  function closePasswordModal() {
+    setShowPasswordModal(false);
+    setPasswordStep("request");
+    setOtpCode("");
+    setNewPassword("");
+    setConfirmPassword("");
+  }
+
+  async function requestPasswordOTP() {
+    setPasswordLoading(true);
+    try {
+      await api.requestPasswordOTP();
+      ok("Verification code sent to your email!");
+      setPasswordStep("verify");
+    } catch (e) {
+      err(e);
+    } finally {
+      setPasswordLoading(false);
+    }
+  }
+
+  async function submitPasswordChange() {
+    if (!otpCode || otpCode.length < 4) {
+      err({ message: "Please enter the verification code" });
+      return;
+    }
+    if (!newPassword || newPassword.length < 6) {
       err({ message: "Password must be at least 6 characters" });
       return;
     }
+    if (newPassword !== confirmPassword) {
+      err({ message: "Passwords do not match" });
+      return;
+    }
+    
+    setPasswordLoading(true);
     try {
-      await api.changePassword?.({ current_password: current, new_password: newPass });
+      await api.changePassword({ otp: otpCode, new_password: newPassword });
       ok("Password changed successfully!");
+      setPasswordStep("success");
+      setTimeout(() => closePasswordModal(), 2000);
     } catch (e) {
-      err(e);
+      if (e?.response?.data?.error === "CODE_EXPIRED") {
+        err({ message: "Code expired. Please request a new one." });
+        setPasswordStep("request");
+      } else {
+        err(e);
+      }
+    } finally {
+      setPasswordLoading(false);
     }
   }
 
@@ -464,7 +517,7 @@ export default function Profile({ user }) {
 
                     {/* Security */}
                     <div className="flex gap-2">
-                      <button className="btn btn-outline" onClick={changePassword}>🔒 Change Password</button>
+                      <button className="btn btn-outline" onClick={openPasswordModal}>🔒 Change Password</button>
                     </div>
                   </div>
                 ) : (
@@ -611,6 +664,124 @@ export default function Profile({ user }) {
           </>
         )}
       </div>
+
+      {/* Password Change Modal */}
+      {showPasswordModal && (
+        <div style={{
+          position: "fixed",
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: "rgba(0,0,0,0.6)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 1000,
+          padding: "1rem"
+        }} onClick={closePasswordModal}>
+          <div 
+            style={{
+              background: "var(--bg-card)",
+              borderRadius: "1rem",
+              padding: "1.5rem",
+              maxWidth: "400px",
+              width: "100%",
+              boxShadow: "0 25px 50px -12px rgba(0,0,0,0.25)"
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold text-lg">🔒 Change Password</h3>
+              <button onClick={closePasswordModal} className="text-2xl hover:opacity-70">×</button>
+            </div>
+
+            {/* Step: Request OTP */}
+            {passwordStep === "request" && (
+              <div className="space-y-4">
+                <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+                  For your security, we'll send a verification code to your email <strong>{user?.email}</strong> before you can change your password.
+                </p>
+                <button 
+                  className="btn btn-red w-full"
+                  onClick={requestPasswordOTP}
+                  disabled={passwordLoading}
+                >
+                  {passwordLoading ? "Sending..." : "📧 Send Verification Code"}
+                </button>
+              </div>
+            )}
+
+            {/* Step: Verify OTP + New Password */}
+            {passwordStep === "verify" && (
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium">Verification Code</label>
+                  <input
+                    type="text"
+                    value={otpCode}
+                    onChange={e => setOtpCode(e.target.value)}
+                    placeholder="Enter 6-digit code"
+                    className="input w-full mt-1 text-center text-lg tracking-widest"
+                    maxLength={6}
+                  />
+                  <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
+                    Code sent to {user?.email}
+                  </p>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium">New Password</label>
+                  <input
+                    type="password"
+                    value={newPassword}
+                    onChange={e => setNewPassword(e.target.value)}
+                    placeholder="Min 6 characters"
+                    className="input w-full mt-1"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium">Confirm New Password</label>
+                  <input
+                    type="password"
+                    value={confirmPassword}
+                    onChange={e => setConfirmPassword(e.target.value)}
+                    placeholder="Re-enter password"
+                    className="input w-full mt-1"
+                  />
+                </div>
+
+                <div className="flex gap-2">
+                  <button 
+                    className="btn btn-red flex-1"
+                    onClick={submitPasswordChange}
+                    disabled={passwordLoading}
+                  >
+                    {passwordLoading ? "Updating..." : "✅ Change Password"}
+                  </button>
+                  <button 
+                    className="btn btn-outline"
+                    onClick={() => setPasswordStep("request")}
+                    disabled={passwordLoading}
+                  >
+                    Resend
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Step: Success */}
+            {passwordStep === "success" && (
+              <div className="text-center py-4">
+                <div className="text-5xl mb-3">✅</div>
+                <h4 className="font-bold text-lg mb-2">Password Changed!</h4>
+                <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+                  Your password has been updated successfully.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

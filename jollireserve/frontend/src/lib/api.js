@@ -64,6 +64,10 @@ export const api = {
     const res = await instance.post("/auth/profile", payload);
     return res.data;
   },
+  async requestPasswordOTP() {
+    const res = await instance.post("/auth/request-password-otp");
+    return res.data;
+  },
   async changePassword(payload) {
     const res = await instance.post("/auth/password", payload);
     return res.data;
