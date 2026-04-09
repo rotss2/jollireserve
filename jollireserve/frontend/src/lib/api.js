@@ -169,6 +169,20 @@ export const api = {
     return res.data;
   },
 
+  // ── Announcements ─────────────────────────────────────
+  async getAnnouncements() {
+    const res = await instance.get("/admin/announcements");
+    return res.data;
+  },
+  async createAnnouncement(payload) {
+    const res = await instance.post("/admin/announcements", payload);
+    return res.data;
+  },
+  async deleteAnnouncement(id) {
+    const res = await instance.delete(`/admin/announcements/${id}`);
+    return res.data;
+  },
+
   // ── Analytics ─────────────────────────────────────────
   async analyticsSummary() {
     const res = await instance.get("/admin/analytics/summary");

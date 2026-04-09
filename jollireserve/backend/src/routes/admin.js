@@ -284,4 +284,70 @@ router.delete("/tables/:id", async (req, res) => {
   }
 });
 
+// ── Announcements (admin only) ──────────────────────────────
+
+// Get all announcements
+router.get("/announcements", async (req, res) => {
+  try {
+    const db = getDb();
+    const snapshot = await db.collection("announcements")
+      .orderBy("created_at", "desc")
+      .limit(50)
+      .get();
+    const announcements = snapshot.docs.map(doc => doc.data());
+    res.json({ announcements });
+  } catch (e) {
+    console.error("Get announcements error:", e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Create announcement
+router.post("/announcements", async (req, res) => {
+  try {
+    const { title, message, type = "info", duration = 30 } = req.body;
+    if (!title || !message) {
+      return res.status(400).json({ error: "Title and message required" });
+    }
+
+    const db = getDb();
+    const id = uuid();
+    const announcementData = {
+      id,
+      title,
+      message,
+      type,
+      duration: Number(duration),
+      created_at: isoNow(),
+      created_by: req.user.id
+    };
+
+    await db.collection("announcements").doc(id).set(announcementData);
+
+    // Broadcast to all connected clients via WebSocket
+    const { broadcast } = require("../websocket");
+    broadcast({
+      type: "announcement",
+      announcement: announcementData
+    });
+
+    res.json({ ok: true, id, announcement: announcementData });
+  } catch (e) {
+    console.error("Create announcement error:", e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Delete announcement
+router.delete("/announcements/:id", async (req, res) => {
+  try {
+    const db = getDb();
+    await db.collection("announcements").doc(req.params.id).delete();
+    res.json({ ok: true });
+  } catch (e) {
+    console.error("Delete announcement error:", e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 module.exports = router;

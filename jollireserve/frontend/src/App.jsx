@@ -14,6 +14,7 @@ import TV from "./pages/TV";
 import QueueStatus from "./pages/Queuestatus";
 import Notifications from "./components/Notifications";
 import MusicPlayer from "./components/MusicPlayer";
+import AnnouncementBanner from "./components/AnnouncementBanner";
 import { MusicProvider, useMusic } from "./context/MusicContext";
 import { clearToken } from "./lib/token";
 import { getMe } from "./lib/auth";
@@ -88,6 +89,7 @@ function AppInner() {
     <div>
       <Notifications />
       {!isTV && <Navbar user={user} onLogout={logout} />}
+      <AnnouncementBanner />
 
       <MusicPlayer />
 

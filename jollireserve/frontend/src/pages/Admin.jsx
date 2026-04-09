@@ -11,7 +11,7 @@ function toISO(d) {
   return `${dd.getFullYear()}-${String(dd.getMonth() + 1).padStart(2, "0")}-${String(dd.getDate()).padStart(2, "0")}`;
 }
 
-const TABS = ["Dashboard", "Tables", "Users", "Settings"];
+const TABS = ["Dashboard", "Tables", "Users", "Announcements", "Settings"];
 
 export default function Admin({ user }) {
   const [tab, setTab] = useState("Dashboard");
@@ -35,6 +35,8 @@ export default function Admin({ user }) {
   });
   const [recentActivity, setRecentActivity] = useState([]);
   const [userStats, setUserStats] = useState({ total: 0, newToday: 0, suspended: 0, staff: 0, admin: 0 });
+  const [announcements, setAnnouncements] = useState([]);
+  const [newAnnouncement, setNewAnnouncement] = useState({ title: "", message: "", type: "info", duration: 30 });
 
   const ok = (msg) => setToast({ message: msg, type: "success" });
   const err = (e) => setToast({ message: e?.response?.data?.error || e.message || "Error", type: "error" });
@@ -152,6 +154,35 @@ export default function Admin({ user }) {
   async function viewHistory(u) {
     setSelectedUser(u);
     try { const h = await api.adminUserHistory(u.id); setUserHistory(h); } catch (e) { err(e); }
+  }
+
+  async function loadAnnouncements() {
+    try {
+      const data = await api.getAnnouncements?.().catch(() => ({ announcements: [] }));
+      setAnnouncements(data?.announcements || []);
+    } catch (e) { console.error("Load announcements error:", e); }
+  }
+
+  async function sendAnnouncement() {
+    if (!newAnnouncement.title || !newAnnouncement.message) {
+      err({ message: "Title and message are required" });
+      return;
+    }
+    try {
+      await api.createAnnouncement?.(newAnnouncement);
+      ok("Announcement sent to all users!");
+      setNewAnnouncement({ title: "", message: "", type: "info", duration: 30 });
+      loadAnnouncements();
+    } catch (e) { err(e); }
+  }
+
+  async function deleteAnnouncement(id) {
+    if (!confirm("Delete this announcement?")) return;
+    try {
+      await api.deleteAnnouncement?.(id);
+      ok("Announcement deleted");
+      loadAnnouncements();
+    } catch (e) { err(e); }
   }
 
   const cardStyle = { background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "1rem", padding: "0.85rem 1rem", marginBottom: "0.5rem" };
@@ -414,6 +445,82 @@ export default function Admin({ user }) {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {tab === "Announcements" && (
+        <div className="card p-5">
+          <div className="font-black mb-4">📢 Global Announcements</div>
+          
+          {/* Create New Announcement */}
+          <div className="mb-4 p-4" style={{ background: "var(--bg-subtle)", borderRadius: "0.75rem" }}>
+            <div className="font-semibold mb-3">Send New Announcement</div>
+            <input
+              type="text"
+              placeholder="Announcement Title"
+              value={newAnnouncement.title}
+              onChange={e => setNewAnnouncement(prev => ({ ...prev, title: e.target.value }))}
+              style={{ width: "100%", marginBottom: "0.75rem", padding: "0.6rem 0.75rem", borderRadius: "0.5rem", border: "1px solid var(--border)", background: "var(--bg-input)", color: "var(--text-main)" }}
+            />
+            <textarea
+              placeholder="Message to all users..."
+              value={newAnnouncement.message}
+              onChange={e => setNewAnnouncement(prev => ({ ...prev, message: e.target.value }))}
+              rows={3}
+              style={{ width: "100%", marginBottom: "0.75rem", padding: "0.6rem 0.75rem", borderRadius: "0.5rem", border: "1px solid var(--border)", background: "var(--bg-input)", color: "var(--text-main)", resize: "vertical" }}
+            />
+            <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", marginBottom: "0.75rem" }}>
+              <select
+                value={newAnnouncement.type}
+                onChange={e => setNewAnnouncement(prev => ({ ...prev, type: e.target.value }))}
+                style={{ padding: "0.5rem 0.75rem", borderRadius: "0.5rem", border: "1px solid var(--border)", background: "var(--bg-input)", color: "var(--text-main)" }}
+              >
+                <option value="info">ℹ️ Info (Blue)</option>
+                <option value="warning">⚠️ Warning (Yellow)</option>
+                <option value="success">✅ Success (Green)</option>
+                <option value="error">🚨 Urgent (Red)</option>
+              </select>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <label className="text-sm">Duration:</label>
+                <input
+                  type="number"
+                  min="5"
+                  max="300"
+                  value={newAnnouncement.duration}
+                  onChange={e => setNewAnnouncement(prev => ({ ...prev, duration: Number(e.target.value) }))}
+                  style={{ width: 70, padding: "0.4rem", borderRadius: "0.5rem", border: "1px solid var(--border)", background: "var(--bg-input)", color: "var(--text-main)" }}
+                />
+                <span className="text-sm">seconds</span>
+              </div>
+            </div>
+            <button className="btn btn-red" onClick={sendAnnouncement}>
+              📢 Send to All Users
+            </button>
+          </div>
+
+          {/* Previous Announcements */}
+          <div>
+            <div className="font-semibold mb-3">Recent Announcements</div>
+            {announcements.length === 0 && (
+              <div className="text-sm" style={{ color: "var(--text-muted)", textAlign: "center", padding: "2rem" }}>
+                No announcements sent yet.
+              </div>
+            )}
+            {announcements.map(a => (
+              <div key={a.id} style={{ ...cardStyle, borderLeft: `4px solid ${a.type === 'error' ? '#ef4444' : a.type === 'warning' ? '#f59e0b' : a.type === 'success' ? '#10b981' : '#3b82f6'}` }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                  <div>
+                    <div className="font-semibold text-sm">{a.title}</div>
+                    <div className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>{a.message}</div>
+                    <div className="text-xs mt-2" style={{ color: "var(--text-muted)" }}>
+                      Sent: {a.created_at?.slice(0, 16)} • Duration: {a.duration}s • Type: {a.type}
+                    </div>
+                  </div>
+                  <button style={{ ...btnSm, color: "#ef4444" }} onClick={() => deleteAnnouncement(a.id)}>🗑 Delete</button>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
