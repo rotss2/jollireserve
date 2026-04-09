@@ -3,6 +3,7 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { v4: uuid } = require("uuid");
 const { dbConn } = require("../db");
+const { getDb } = require("../firebase");
 const { isoNow } = require("../utils/time");
 const { sendMail } = require("../utils/email");
 const { generateCode, hashCode, expiresAt, isExpired } = require("../utils/verify");
@@ -25,10 +26,12 @@ router.post("/register", async (req, res) => {
     if (!email || !password)
       return res.status(400).json({ error: "Email and password are required" });
 
-    const db = dbConn();
+    const db = getDb();
+    const usersCol = db.collection("users");
 
-    const existing = await db.prepare("SELECT id FROM users WHERE email=?").get(email.toLowerCase());
-    if (existing)
+    // Check if email already exists
+    const existing = await usersCol.where("email", "==", email.toLowerCase()).limit(1).get();
+    if (!existing.empty)
       return res.status(409).json({ error: "Email already registered" });
 
     const id = uuid();
@@ -37,23 +40,29 @@ router.post("/register", async (req, res) => {
     const codeExp = expiresAt(15);
     const hash = bcrypt.hashSync(password, 10);
 
-    await db.prepare(`
-      INSERT INTO users
-        (id, email, password_hash, name, role, is_verified, verification_code_hash, verification_code_expires_at, created_at)
-      VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?)
-    `).run(id, email.toLowerCase(), hash, name || "", "customer", codeHash, codeExp, isoNow());
+    const userData = {
+      id,
+      email: email.toLowerCase(),
+      password_hash: hash,
+      name: name || "",
+      role: "customer",
+      is_verified: 0,
+      verification_code_hash: codeHash,
+      verification_code_expires_at: codeExp,
+      created_at: isoNow()
+    };
 
-    const user = await db.prepare("SELECT id, email, name, role FROM users WHERE id=?").get(id);
+    await usersCol.doc(id).set(userData);
 
     // Send OTP via Resend
     const mailResult = await sendMail({
-      to: user.email,
+      to: userData.email,
       subject: "JolliReserve: Your verification code",
-      text: `Hello ${user.name || "Guest"},\n\nYour verification code is: ${code}\n\nThis code expires in 15 minutes.\n\nThanks,\nJolliReserve`,
+      text: `Hello ${userData.name || "Guest"},\n\nYour verification code is: ${code}\n\nThis code expires in 15 minutes.\n\nThanks,\nJolliReserve`,
     });
 
-    console.log("✅ Register:", user.email, "| OTP:", code, "| Mail:", JSON.stringify(mailResult));
-    res.json({ pendingVerification: true, email: user.email });
+    console.log("✅ Register:", userData.email, "| OTP:", code, "| Mail:", JSON.stringify(mailResult));
+    res.json({ pendingVerification: true, email: userData.email });
 
   } catch (err) {
     console.error("Register error:", err.message);
@@ -68,12 +77,15 @@ router.post("/login", async (req, res) => {
     if (!email || !password)
       return res.status(400).json({ error: "Email and password are required" });
 
-    const db = dbConn();
-    const user = await db.prepare("SELECT * FROM users WHERE email=?").get(email.toLowerCase());
+    const db = getDb();
+    const usersCol = db.collection("users");
+    
+    const snapshot = await usersCol.where("email", "==", email.toLowerCase()).limit(1).get();
+    
+    console.log("LOGIN:", email, "| found:", !snapshot.empty ? "yes" : "no");
+    if (snapshot.empty) return res.status(401).json({ error: "Invalid credentials" });
 
-    console.log("LOGIN:", email, "| found:", user ? "yes" : "no");
-    if (!user) return res.status(401).json({ error: "Invalid credentials" });
-
+    const user = snapshot.docs[0].data();
     const ok = bcrypt.compareSync(password, user.password_hash);
     console.log("PASSWORD OK:", ok, "| IS VERIFIED:", user.is_verified);
 
@@ -93,10 +105,20 @@ router.post("/login", async (req, res) => {
 // ── Me ────────────────────────────────────────────────────
 router.get("/me", requireAuth, async (req, res) => {
   try {
-    const db = dbConn();
-    const user = await db.prepare("SELECT id, email, name, role, is_verified, created_at FROM users WHERE id=?").get(req.user.id);
-    if (!user) return res.status(404).json({ error: "User not found" });
-    res.json({ user });
+    const db = getDb();
+    const userDoc = await db.collection("users").doc(req.user.id).get();
+    if (!userDoc.exists) return res.status(404).json({ error: "User not found" });
+    
+    const user = userDoc.data();
+    const safe = { 
+      id: user.id, 
+      email: user.email, 
+      name: user.name, 
+      role: user.role, 
+      is_verified: user.is_verified, 
+      created_at: user.created_at 
+    };
+    res.json({ user: safe });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -108,17 +130,25 @@ router.post("/request-verification", async (req, res) => {
     const { email } = req.body || {};
     if (!email) return res.status(400).json({ error: "Email required" });
 
-    const db = dbConn();
-    const user = await db.prepare("SELECT id, email, name, is_verified FROM users WHERE email=?").get(email.toLowerCase());
-    if (!user) return res.status(404).json({ error: "User not found" });
+    const db = getDb();
+    const usersCol = db.collection("users");
+    const snapshot = await usersCol.where("email", "==", email.toLowerCase()).limit(1).get();
+    
+    if (snapshot.empty) return res.status(404).json({ error: "User not found" });
+    
+    const user = snapshot.docs[0].data();
+    const userId = snapshot.docs[0].id;
+    
     if (user.is_verified) return res.json({ ok: true, alreadyVerified: true });
 
     const code = generateCode();
     const codeHash = hashCode(code);
     const codeExp = expiresAt(15);
 
-    await db.prepare("UPDATE users SET verification_code_hash=?, verification_code_expires_at=? WHERE id=?")
-      .run(codeHash, codeExp, user.id);
+    await usersCol.doc(userId).update({
+      verification_code_hash: codeHash,
+      verification_code_expires_at: codeExp
+    });
 
     await sendMail({
       to: user.email,
@@ -142,9 +172,15 @@ router.post("/verify-email", async (req, res) => {
     if (!email || !code)
       return res.status(400).json({ error: "Email and code required" });
 
-    const db = dbConn();
-    const user = await db.prepare("SELECT * FROM users WHERE email=?").get(email.toLowerCase());
-    if (!user) return res.status(404).json({ error: "User not found" });
+    const db = getDb();
+    const usersCol = db.collection("users");
+    const snapshot = await usersCol.where("email", "==", email.toLowerCase()).limit(1).get();
+    
+    if (snapshot.empty) return res.status(404).json({ error: "User not found" });
+    
+    const user = snapshot.docs[0].data();
+    const userId = snapshot.docs[0].id;
+    
     if (user.is_verified) return res.json({ ok: true, alreadyVerified: true });
 
     if (!user.verification_code_hash || !user.verification_code_expires_at)
@@ -157,8 +193,11 @@ router.post("/verify-email", async (req, res) => {
     if (codeHash !== user.verification_code_hash)
       return res.status(400).json({ error: "INVALID_CODE" });
 
-    await db.prepare("UPDATE users SET is_verified=1, verification_code_hash=NULL, verification_code_expires_at=NULL WHERE id=?")
-      .run(user.id);
+    await usersCol.doc(userId).update({
+      is_verified: 1,
+      verification_code_hash: null,
+      verification_code_expires_at: null
+    });
 
     const safe = { id: user.id, email: user.email, name: user.name, role: user.role, is_verified: 1, created_at: user.created_at };
     const token = signToken(safe);
