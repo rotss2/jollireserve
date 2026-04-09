@@ -238,30 +238,30 @@ export default function Profile({ user }) {
       <Toast message={toast.message} type={toast.type} onClose={() => setToast({ message: "", type: "success" })} />
 
       {/* Header */}
-      <div className="card p-6 mb-4" style={{ background: "linear-gradient(135deg, var(--red) 0%, #dc2626 100%)" }}>
-        <div className="flex items-center gap-4">
-          <div style={{ width: 64, height: 64, borderRadius: "50%", background: "rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28 }}>
+      <div className="card p-4 md:p-6 mb-4" style={{ background: "linear-gradient(135deg, var(--red) 0%, #dc2626 100%)" }}>
+        <div className="flex flex-col sm:flex-row items-center sm:items-center gap-3 sm:gap-4 text-center sm:text-left">
+          <div style={{ width: 56, height: 56, borderRadius: "50%", background: "rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, flexShrink: 0 }}>
             👤
           </div>
-          <div style={{ color: "#fff" }}>
-            <h1 className="text-2xl font-black">{user.name || user.email}</h1>
-            <p className="opacity-80">{user.email} • Member since {user.created_at?.slice(0, 10)}</p>
+          <div style={{ color: "#fff", minWidth: 0 }}>
+            <h1 className="text-lg sm:text-2xl font-black truncate">{user.name || user.email}</h1>
+            <p className="opacity-80 text-sm sm:text-base truncate">{user.email} • Member since {user.created_at?.slice(0, 10)}</p>
           </div>
         </div>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-5 gap-3 mb-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 sm:gap-3 mb-4">
         {[
           { label: "Reservations", value: stats.totalReservations, icon: "📅" },
           { label: "Upcoming", value: stats.upcomingReservations, icon: "📆" },
-          { label: "Queue Joins", value: stats.totalQueueJoins, icon: "🐝" },
+          { label: "Queue", value: stats.totalQueueJoins, icon: "🐝" },
           { label: "Logins", value: stats.totalLogins, icon: "🔑" },
-          { label: "Fav Seating", value: SEATING_OPTIONS.find(s => s.value === stats.favoriteSeating)?.label?.split(' ')[1] || "Indoor", icon: "🪑" }
+          { label: "Seating", value: SEATING_OPTIONS.find(s => s.value === stats.favoriteSeating)?.label?.split(' ')[1] || "Indoor", icon: "🪑" }
         ].map(stat => (
-          <div key={stat.label} className="card p-4 text-center">
-            <div className="text-2xl mb-1">{stat.icon}</div>
-            <div className="text-xl font-black">{stat.value}</div>
+          <div key={stat.label} className="card p-2 sm:p-4 text-center">
+            <div className="text-xl sm:text-2xl mb-1">{stat.icon}</div>
+            <div className="text-lg sm:text-xl font-black">{stat.value}</div>
             <div className="text-xs" style={{ color: "var(--text-muted)" }}>{stat.label}</div>
           </div>
         ))}
@@ -295,7 +295,7 @@ export default function Profile({ user }) {
             {tab === "overview" && (
               <div>
                 <h2 className="font-black mb-4">Account Overview</h2>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="p-4" style={{ background: "var(--bg-subtle)", borderRadius: "0.75rem" }}>
                     <div className="font-semibold mb-2">📅 Recent Reservations</div>
                     {reservations.slice(0, 3).map(r => (
@@ -585,7 +585,7 @@ export default function Profile({ user }) {
 
                         <div>
                           <label className="text-sm font-medium">Preferred Seating</label>
-                          <div className="grid grid-cols-3 gap-2 mt-2">
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2">
                             {SEATING_OPTIONS.map(opt => (
                               <button
                                 key={opt.value}
@@ -596,7 +596,7 @@ export default function Profile({ user }) {
                                     : "border-gray-200 hover:border-gray-300"
                                 }`}
                               >
-                                <div className="font-medium">{opt.label}</div>
+                                <div className="font-medium text-sm sm:text-base">{opt.label}</div>
                                 <div className="text-xs text-gray-500">{opt.desc}</div>
                               </button>
                             ))}

@@ -79,6 +79,15 @@ export default function Navbar({ user, onLogout }) {
           <button className="theme-toggle" onClick={toggle}>
             {dark ? "☀️" : "🌙"}
           </button>
+          {user && (
+            <Link 
+              to="/profile" 
+              className="flex items-center justify-center w-9 h-9 rounded-full bg-gradient-to-br from-red-500 to-red-600 text-white shadow-md"
+              title="My Profile"
+            >
+              <span className="text-lg">👤</span>
+            </Link>
+          )}
           <button
             onClick={() => setMenuOpen(!menuOpen)}
             style={{
