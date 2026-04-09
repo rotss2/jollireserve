@@ -53,18 +53,36 @@ router.post("/register", async (req, res) => {
     const usersCol = db.collection("users");
 
     // Check if email already exists
-    const existing = await usersCol.where("email", "==", email.toLowerCase()).limit(1).get();
-    if (!existing.empty)
-      return res.status(409).json({ error: "Email already registered" });
+    const existingQuery = await usersCol.where("email", "==", email.toLowerCase()).limit(1).get();
+    
+    let userId;
+    let isReRegistration = false;
+    
+    if (!existingQuery.empty) {
+      const existingDoc = existingQuery.docs[0];
+      const existingUser = existingDoc.data();
+      
+      // If already verified, block registration
+      if (existingUser.is_verified) {
+        return res.status(409).json({ error: "Email already registered and verified. Please login instead." });
+      }
+      
+      // If NOT verified, allow re-registration (update existing record)
+      userId = existingUser.id;
+      isReRegistration = true;
+      console.log("🔄 Re-registration for unverified user:", email);
+    } else {
+      // New user
+      userId = uuid();
+    }
 
-    const id = uuid();
     const code = generateCode();
     const codeHash = hashCode(code);
     const codeExp = expiresAt(15);
     const hash = bcrypt.hashSync(password, 10);
 
     const userData = {
-      id,
+      id: userId,
       email: email.toLowerCase(),
       password_hash: hash,
       name: name || "",
@@ -72,10 +90,13 @@ router.post("/register", async (req, res) => {
       is_verified: 0,
       verification_code_hash: codeHash,
       verification_code_expires_at: codeExp,
-      created_at: isoNow()
+      created_at: isReRegistration ? existingQuery.docs[0].data().created_at : isoNow(),
+      updated_at: isoNow()
     };
 
-    await usersCol.doc(id).set(userData);
+    // Save to Firestore (create new or update existing)
+    await usersCol.doc(userId).set(userData);
+    console.log("✅ User saved to Firestore:", userData.email, "| ID:", userId, "| Verified:", userData.is_verified);
 
     // Send OTP via Brevo
     const mailResult = await sendMail({
@@ -84,21 +105,25 @@ router.post("/register", async (req, res) => {
       text: `Hello ${userData.name || "Guest"},\n\nYour verification code is: ${code}\n\nThis code expires in 15 minutes.\n\nThanks,\nJolliReserve`,
     });
 
-    console.log("✅ Register:", userData.email, "| OTP:", code, "| Mail:", JSON.stringify(mailResult));
+    console.log("📧 Email result:", userData.email, "| OTP:", code, "| Mail:", JSON.stringify(mailResult));
     
     // Check if email actually sent
     if (mailResult.skipped || mailResult.error) {
       console.error("❌ Email failed:", mailResult.error);
-      // Still create account but warn user
       return res.json({ 
         pendingVerification: true, 
         email: userData.email,
-        warning: "Account created but email failed to send. Please use 'Resend Code' or contact support.",
-        emailError: mailResult.error
+        warning: "Account saved but email failed to send. Please use 'Resend Code' or contact support.",
+        emailError: mailResult.error,
+        isReRegistration
       });
     }
     
-    res.json({ pendingVerification: true, email: userData.email });
+    res.json({ 
+      pendingVerification: true, 
+      email: userData.email,
+      message: isReRegistration ? "Account updated. New OTP sent!" : "Account created. OTP sent!"
+    });
 
   } catch (err) {
     console.error("Register error:", err.message);
