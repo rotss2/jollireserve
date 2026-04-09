@@ -49,15 +49,20 @@ export default function Navbar({ user, onLogout }) {
           </button>
           {user ? (
             <>
+              {/* Profile Avatar Button */}
               <Link 
                 to="/profile" 
-                className={`flex items-center gap-2 px-3 py-1 rounded-full text-sm font-semibold ${active("/profile")}`}
+                className="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-red-500 to-red-600 text-white shadow-lg hover:shadow-xl hover:scale-105 transition-all"
                 title="My Profile"
               >
-                <span style={{ fontSize: '1.1rem' }}>👤</span>
-                <span className="hidden sm:inline">{user.name || user.email}</span>
+                <span className="text-xl">👤</span>
               </Link>
-              <button className="btn btn-outline text-sm" onClick={() => { onLogout(); navigate("/login"); }}>
+              
+              {/* Desktop: Name + Logout */}
+              <span className="navbar-pill px-3 py-1 rounded-full bg-white/70 border border-black/10 text-sm hidden lg:inline">
+                {user.name || user.email}
+              </span>
+              <button className="btn btn-outline text-sm hidden md:inline" onClick={() => { onLogout(); navigate("/login"); }}>
                 Logout
               </button>
             </>
@@ -120,14 +125,21 @@ export default function Navbar({ user, onLogout }) {
           <div style={{ height: "1px", background: "var(--border-soft)", margin: "0.25rem 0" }} />
 
           {user ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+              {/* Profile Section */}
               <Link 
-                className={`px-4 py-2 rounded-full text-sm font-semibold ${active("/profile")}`} 
+                className="flex items-center gap-3 p-3 rounded-xl bg-gradient-to-r from-red-500 to-red-600 text-white" 
                 to="/profile" 
                 onClick={() => setMenuOpen(false)}
               >
-                👤 My Profile
+                <span className="text-2xl">👤</span>
+                <div>
+                  <div className="font-semibold">My Profile</div>
+                  <div className="text-xs opacity-80">{user.email}</div>
+                </div>
+                <span className="ml-auto">→</span>
               </Link>
+              
               <button className="btn btn-outline w-full" onClick={() => { onLogout(); navigate("/login"); setMenuOpen(false); }}>
                 Logout
               </button>
