@@ -52,10 +52,10 @@
 
 /* ── Smooth theme transition base ── */
 * {
-  transition: background-color 0.25s cubic-bezier(0.4, 0, 0.2, 1),
-              color 0.25s cubic-bezier(0.4, 0, 0.2, 1),
-              border-color 0.25s cubic-bezier(0.4, 0, 0.2, 1),
-              box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: background-color 0.15s ease-out,
+              color 0.15s ease-out,
+              border-color 0.15s ease-out,
+              box-shadow 0.15s ease-out;
 }
 
 /* Disable transitions on page load */
@@ -71,8 +71,11 @@ body {
     var(--bg-body);
   color: var(--text-main);
   font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
-  transition: background 0.3s cubic-bezier(0.4, 0, 0.2, 1), color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: background 0.15s ease-out, color 0.15s ease-out;
   min-height: 100vh;
+  /* Optimize for mobile scrolling/rendering */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 [data-theme="dark"] body {
@@ -80,6 +83,53 @@ body {
     radial-gradient(1100px 500px at 85% 95%, rgba(200, 0, 10, 0.09), transparent 55%),
     radial-gradient(800px 400px at 5% 5%,   rgba(120, 20, 10, 0.12), transparent 50%),
     var(--bg-body);
+}
+
+/* ── Mobile optimizations ── */
+@media (hover: none) and (pointer: coarse) {
+  /* Touch devices - faster, simpler transitions */
+  * {
+    transition-duration: 0.1s !important;
+  }
+  
+  body {
+    /* Simpler background for mobile GPU */
+    background: var(--bg-body);
+    transition: background-color 0.1s ease-out, color 0.1s ease-out;
+    /* Enable hardware acceleration */
+    transform: translateZ(0);
+    backface-visibility: hidden;
+  }
+  
+  [data-theme="dark"] body {
+    background: var(--bg-body);
+  }
+  
+  /* Cards - use solid colors on mobile for better performance */
+  .card, [class*="card"] {
+    background: var(--bg-card) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    transform: translateZ(0);
+  }
+}
+
+/* ── Theme transition overlay for ultra-smooth switch ── */
+.theme-transition-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0;
+  transition: opacity 0.15s ease-out;
+  background: var(--bg-body);
+}
+
+.theme-transition-overlay.active {
+  opacity: 1;
 }
 
 /* ══ Fix hardcoded Tailwind black opacity text in dark mode ══ */
