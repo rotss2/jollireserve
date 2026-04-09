@@ -265,6 +265,20 @@ export const api = {
     return res.data;
   },
 
+  // ── Payments (PayMongo TEST MODE) ────────────────────────
+  async createPaymentIntent(amount, description, reservation_id) {
+    const res = await instance.post("/payments/create-intent", { amount, description, reservation_id });
+    return res.data;
+  },
+  async getPaymentStatus(id) {
+    const res = await instance.get(`/payments/status/${id}`);
+    return res.data;
+  },
+  async simulatePaymentSuccess(id) {
+    const res = await instance.post(`/payments/simulate-success/${id}`);
+    return res.data;
+  },
+
   // ── Raw passthrough ───────────────────────────────────
   get: (url, config) => instance.get(url, config),
   post: (url, data, config) => instance.post(url, data, config),
