@@ -11,7 +11,7 @@ function toISO(d) {
   return `${dd.getFullYear()}-${String(dd.getMonth() + 1).padStart(2, "0")}-${String(dd.getDate()).padStart(2, "0")}`;
 }
 
-const TABS = ["Dashboard", "Queue", "Reservations", "Tables", "Users"];
+const TABS = ["Dashboard", "Tables", "Users"];
 
 export default function Admin({ user }) {
   const [tab, setTab] = useState("Dashboard");
@@ -21,13 +21,9 @@ export default function Admin({ user }) {
   const [peak, setPeak] = useState([]);
   const [util, setUtil] = useState(null);
   const [tables, setTables] = useState([]);
-  const [queue, setQueue] = useState([]);
-  const [reservations, setReservations] = useState([]);
   const [users, setUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
   const [userHistory, setUserHistory] = useState(null);
-  const [walkInName, setWalkInName] = useState("");
-  const [walkInParty, setWalkInParty] = useState(2);
 
   const ok = (msg) => setToast({ message: msg, type: "success" });
   const err = (e) => setToast({ message: e?.response?.data?.error || e.message || "Error", type: "error" });
@@ -40,13 +36,11 @@ export default function Admin({ user }) {
 
   async function loadAll() {
     try {
-      const [s, d, u, t, q, r, us] = await Promise.allSettled([
+      const [s, d, u, t, us] = await Promise.allSettled([
         api.analyticsSummary(),
         api.analyticsByDay(range.from, range.to),
         api.analyticsUtil(range.from, range.to),
         api.adminTables(),
-        api.adminQueueActive(),
-        api.adminReservations(),
         api.adminUsers(),
       ]);
       if (s.status === "fulfilled") {
@@ -59,8 +53,6 @@ export default function Admin({ user }) {
       if (d.status === "fulfilled") setByDay(d.value.rows || []);
       if (u.status === "fulfilled") setUtil(u.value);
       if (t.status === "fulfilled") setTables(t.value.tables || []);
-      if (q.status === "fulfilled") setQueue(q.value.entries || []);
-      if (r.status === "fulfilled") setReservations(r.value.reservations || []);
       if (us.status === "fulfilled") setUsers(us.value.users || []);
     } catch (e) { err(e); }
   }
@@ -89,20 +81,6 @@ export default function Admin({ user }) {
     if (!confirm("Delete this table?")) return;
     try { await api.deleteTable(id); ok("Deleted!"); loadAll(); } catch (e) { err(e); }
   }
-
-  async function addWalkIn() {
-    if (!walkInParty) return;
-    try { await api.adminWalkIn({ name: walkInName || "Walk-in", party_size: walkInParty }); ok("Walk-in added!"); setWalkInName(""); setWalkInParty(2); loadAll(); } catch (e) { err(e); }
-  }
-
-  async function callEntry(id) { try { await api.adminCallQueue(id); ok("Called!"); loadAll(); } catch (e) { err(e); } }
-  async function seatEntry(id) { try { await api.adminSeatQueue(id); ok("Seated!"); loadAll(); } catch (e) { err(e); } }
-  async function cancelEntry(id) { try { await api.adminCancelQueue(id); ok("Cancelled!"); loadAll(); } catch (e) { err(e); } }
-
-  async function checkin(id) { try { await api.adminCheckinReservation(id); ok("Checked in!"); loadAll(); } catch (e) { err(e); } }
-  async function complete(id) { try { await api.adminCompleteReservation(id); ok("Completed!"); loadAll(); } catch (e) { err(e); } }
-  async function cancelRes(id) { try { await api.adminCancelReservation(id); ok("Cancelled!"); loadAll(); } catch (e) { err(e); } }
-  async function deleteRes(id) { if (!confirm("Delete reservation?")) return; try { await api.adminDeleteReservation(id); ok("Deleted!"); loadAll(); } catch (e) { err(e); } }
 
   async function changeRole(id, role) {
     try { await api.adminUpdateUserRole(id, role); ok("Role updated!"); loadAll(); } catch (e) { err(e); }
@@ -213,59 +191,6 @@ export default function Admin({ user }) {
             </div>
           </div>
         </>
-      )}
-
-      {tab === "Queue" && (
-        <div className="card p-5">
-          <div className="font-black mb-3">Queue Management</div>
-          <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "1rem", padding: "0.75rem", background: "var(--bg-input)", borderRadius: "0.75rem", border: "1px solid var(--border)" }}>
-            <input className="input" style={{ flex: 1, minWidth: 120 }} placeholder="Name (optional)" value={walkInName} onChange={e => setWalkInName(e.target.value)} />
-            <input className="input" style={{ width: 80 }} type="number" min={1} value={walkInParty} onChange={e => setWalkInParty(Number(e.target.value))} placeholder="Party" />
-            <button className="btn btn-red" onClick={addWalkIn}>+ Walk-in</button>
-          </div>
-          {queue.length === 0 && <div className="text-sm" style={{ color: "var(--text-muted)" }}>No active queue.</div>}
-          {queue.map((q, idx) => (
-            <div key={q.id} style={cardStyle}>
-              <div style={rowStyle}>
-                <span className="font-black text-[var(--red)]">#{idx + 1}</span>
-                <span className="font-semibold text-sm">{q.name || q.user_name || "Guest"}</span>
-                <span style={badgeStyle("")}>Party {q.party_size}</span>
-                <span style={badgeStyle(q.status === "waiting" ? "" : "green")}>{q.status}</span>
-                {q.user_email && <span className="text-xs" style={{ color: "var(--text-muted)" }}>{q.user_email}</span>}
-                <div style={{ marginLeft: "auto", display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
-                  {q.status === "waiting" && <button style={btnSm} onClick={() => callEntry(q.id)}>📢 Call</button>}
-                  {q.status !== "seated" && <button style={btnSm} onClick={() => seatEntry(q.id)}>✅ Seated</button>}
-                  {q.status !== "cancelled" && <button style={{ ...btnSm, color: "#ef4444" }} onClick={() => cancelEntry(q.id)}>✕ Cancel</button>}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {tab === "Reservations" && (
-        <div className="card p-5">
-          <div className="font-black mb-3">All Reservations ({reservations.length})</div>
-          {reservations.length === 0 && <div className="text-sm" style={{ color: "var(--text-muted)" }}>No reservations.</div>}
-          {reservations.map(r => (
-            <div key={r.id} style={cardStyle}>
-              <div style={rowStyle}>
-                <span className="font-semibold text-sm">{r.user_name || r.user_email}</span>
-                <span style={badgeStyle("")}>{r.date} {r.time}</span>
-                <span style={badgeStyle("")}>Party {r.party_size}</span>
-                <span style={badgeStyle(r.status === "confirmed" ? "green" : r.status === "cancelled" ? "red" : "")}>{r.status}</span>
-                {r.table_name && <span style={badgeStyle("")}>Table {r.table_name}</span>}
-              </div>
-              {r.special_requests && <div className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>📝 {r.special_requests}</div>}
-              <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap", marginTop: "0.5rem" }}>
-                {r.status === "confirmed" && <button style={btnSm} onClick={() => checkin(r.id)}>✓ Check-in</button>}
-                {r.status === "checked_in" && <button style={btnSm} onClick={() => complete(r.id)}>✅ Complete</button>}
-                {!["cancelled", "completed"].includes(r.status) && <button style={{ ...btnSm, color: "#ef4444" }} onClick={() => cancelRes(r.id)}>✕ Cancel</button>}
-                <button style={{ ...btnSm, color: "#ef4444" }} onClick={() => deleteRes(r.id)}>🗑 Delete</button>
-              </div>
-            </div>
-          ))}
-        </div>
       )}
 
       {tab === "Tables" && (
