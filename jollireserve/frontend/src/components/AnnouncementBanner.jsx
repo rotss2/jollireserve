@@ -2,11 +2,28 @@ import React, { useState, useEffect } from "react";
 import { onWSMessage } from "../lib/ws";
 import * as api from "../lib/api";
 
-const typeColors = {
-  info: { bg: "#3b82f6", border: "#2563eb" },
-  warning: { bg: "#f59e0b", border: "#d97706" },
-  success: { bg: "#10b981", border: "#059669" },
-  error: { bg: "#ef4444", border: "#dc2626" }
+// Modern color scheme matching Jollibee theme
+const typeStyles = {
+  info: { 
+    bg: "linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)", 
+    icon: "📢",
+    shadow: "0 8px 32px rgba(220, 38, 38, 0.4)"
+  },
+  warning: { 
+    bg: "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)", 
+    icon: "⚠️",
+    shadow: "0 8px 32px rgba(245, 158, 11, 0.4)"
+  },
+  success: { 
+    bg: "linear-gradient(135deg, #10b981 0%, #059669 100%)", 
+    icon: "✅",
+    shadow: "0 8px 32px rgba(16, 185, 129, 0.4)"
+  },
+  error: { 
+    bg: "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)", 
+    icon: "🚨",
+    shadow: "0 8px 32px rgba(239, 68, 68, 0.4)"
+  }
 };
 
 export default function AnnouncementBanner() {
@@ -15,14 +32,12 @@ export default function AnnouncementBanner() {
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
 
   useEffect(() => {
-    // Listen for WebSocket announcement messages
     const handleMessage = (msg) => {
       if (msg.type === "announcement" && msg.announcement) {
         const a = msg.announcement;
         setAnnouncement(a);
         setVisible(true);
 
-        // Auto-hide after duration
         const durationMs = (a.duration || 30) * 1000;
         const timer = setTimeout(() => {
           setVisible(false);
@@ -32,16 +47,10 @@ export default function AnnouncementBanner() {
       }
     };
 
-    // Subscribe to WebSocket messages
     const unsubscribe = onWSMessage(handleMessage);
-
-    // Also check for any recent announcements on load
     checkRecentAnnouncements();
 
-    // Listen for resize to detect mobile
-    const handleResize = () => {
-      setIsMobile(window.innerWidth <= 768);
-    };
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
     window.addEventListener("resize", handleResize);
 
     return () => {
@@ -52,7 +61,6 @@ export default function AnnouncementBanner() {
 
   const checkRecentAnnouncements = async () => {
     try {
-      // Fetch the most recent active announcement from the API
       const res = await api.getActiveAnnouncement?.() || await fetch("/api/announcements/active").then(r => r.ok ? r.json() : null);
       if (res?.announcement) {
         setAnnouncement(res.announcement);
@@ -63,181 +71,135 @@ export default function AnnouncementBanner() {
     }
   };
 
-  const closeAnnouncement = () => {
-    setVisible(false);
-  };
+  const closeAnnouncement = () => setVisible(false);
 
   if (!visible || !announcement) return null;
 
-  const colors = typeColors[announcement.type] || typeColors.info;
+  const style = typeStyles[announcement.type] || typeStyles.info;
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        top: 70,
-        left: 0,
-        right: 0,
-        zIndex: 1000,
-        background: colors.bg,
-        borderBottom: `2px solid ${colors.border}`,
-        boxShadow: "0 4px 20px rgba(0,0,0,0.3)",
-        animation: "slideDown 0.3s ease-out",
-        overflow: "hidden"
-      }}
-    >
-      {/* Desktop Layout - Horizontal with scrolling marquee */}
-      <div 
-        className="desktop-layout"
-        style={{ 
-          display: isMobile ? "none" : "flex",
-          alignItems: "center", 
-          padding: "0.75rem 1rem",
-          position: "relative"
-        }}
-      >
-        {/* Title - Fixed */}
-        <div style={{ 
-          fontWeight: 700, 
-          color: "#fff", 
-          fontSize: "1rem",
-          whiteSpace: "nowrap",
-          marginRight: "1rem",
-          flexShrink: 0
-        }}>
-          📢 {announcement.title}
-        </div>
-        
-        {/* Message - Scrolling Marquee for Desktop */}
-        <div style={{ 
-          flex: 1, 
-          overflow: "hidden",
-          position: "relative",
-          maskImage: "linear-gradient(to right, transparent, black 10%, black 90%, transparent)"
-        }}>
-          <div 
-            style={{ 
-              color: "rgba(255,255,255,0.95)", 
-              fontSize: "0.95rem",
-              whiteSpace: "nowrap",
-              animation: "marquee 20s linear infinite",
-              display: "inline-block"
-            }}
-          >
-            {announcement.message} &nbsp;&nbsp;&nbsp; {announcement.message}
-          </div>
-        </div>
-        
-        {/* Close Button */}
-        <button
-          onClick={closeAnnouncement}
-          style={{
-            background: "rgba(255,255,255,0.2)",
-            border: "none",
-            borderRadius: "0.5rem",
-            padding: "0.5rem 0.75rem",
-            cursor: "pointer",
-            color: "#fff",
-            fontWeight: 600,
-            fontSize: "1rem",
-            marginLeft: "1rem",
-            flexShrink: 0,
-            minWidth: "40px",
-            minHeight: "40px"
-          }}
-          onMouseEnter={e => e.target.style.background = "rgba(255,255,255,0.3)"}
-          onMouseLeave={e => e.target.style.background = "rgba(255,255,255,0.2)"}
-        >
-          ✕
-        </button>
-      </div>
-
-      {/* Mobile Layout - Stacked with larger text */}
-      <div
-        className="mobile-layout"
-        style={{
-          display: isMobile ? "block" : "none",
-          padding: "1rem",
-          position: "relative"
-        }}
-      >
-        {/* Header with title and close button */}
+    <div style={{
+      position: "fixed",
+      top: isMobile ? 60 : 80,
+      left: "50%",
+      transform: "translateX(-50%)",
+      zIndex: 9999,
+      width: isMobile ? "calc(100% - 20px)" : "90%",
+      maxWidth: "800px",
+      animation: "slideInDown 0.4s cubic-bezier(0.16, 1, 0.3, 1)"
+    }}>
+      <div style={{
+        background: style.bg,
+        borderRadius: "16px",
+        boxShadow: style.shadow,
+        overflow: "hidden",
+        position: "relative"
+      }}>
+        {/* Content Container */}
         <div style={{
           display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          marginBottom: "0.5rem"
+          alignItems: "flex-start",
+          padding: isMobile ? "16px" : "20px",
+          gap: isMobile ? "12px" : "16px"
         }}>
-          <div style={{ 
-            fontWeight: 700, 
-            color: "#fff", 
-            fontSize: "1.1rem",
-            display: "flex",
-            alignItems: "center",
-            gap: "0.5rem"
+          {/* Icon */}
+          <div style={{
+            fontSize: isMobile ? "24px" : "28px",
+            flexShrink: 0,
+            marginTop: "2px"
           }}>
-            📢 {announcement.title}
+            {style.icon}
           </div>
-          
+
+          {/* Text Content */}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            {/* Title */}
+            <h3 style={{
+              margin: "0 0 8px 0",
+              color: "#fff",
+              fontSize: isMobile ? "16px" : "18px",
+              fontWeight: 700,
+              lineHeight: 1.3,
+              textShadow: "0 1px 2px rgba(0,0,0,0.2)"
+            }}>
+              {announcement.title}
+            </h3>
+            
+            {/* Message */}
+            <p style={{
+              margin: 0,
+              color: "rgba(255,255,255,0.95)",
+              fontSize: isMobile ? "14px" : "15px",
+              lineHeight: 1.6,
+              wordWrap: "break-word",
+              overflowWrap: "break-word"
+            }}>
+              {announcement.message}
+            </p>
+          </div>
+
+          {/* Close Button */}
           <button
             onClick={closeAnnouncement}
             style={{
-              background: "rgba(255,255,255,0.2)",
+              background: "rgba(255,255,255,0.15)",
               border: "none",
-              borderRadius: "0.5rem",
-              padding: "0.5rem 0.75rem",
+              borderRadius: "50%",
+              width: isMobile ? "32px" : "36px",
+              height: isMobile ? "32px" : "36px",
               cursor: "pointer",
               color: "#fff",
-              fontWeight: 600,
-              fontSize: "1.1rem",
-              minWidth: "44px",
-              minHeight: "44px",
+              fontSize: isMobile ? "18px" : "20px",
               display: "flex",
               alignItems: "center",
-              justifyContent: "center"
+              justifyContent: "center",
+              flexShrink: 0,
+              transition: "all 0.2s ease",
+              backdropFilter: "blur(4px)"
             }}
+            onMouseEnter={(e) => {
+              e.target.style.background = "rgba(255,255,255,0.25)";
+              e.target.style.transform = "scale(1.05)";
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.background = "rgba(255,255,255,0.15)";
+              e.target.style.transform = "scale(1)";
+            }}
+            aria-label="Close announcement"
           >
-            ✕
+            ×
           </button>
         </div>
-        
-        {/* Message - Static and wrapped for mobile */}
+
+        {/* Progress Bar */}
         <div style={{
-          color: "rgba(255,255,255,0.95)",
-          fontSize: "1rem",
-          lineHeight: "1.5",
-          wordWrap: "break-word",
-          overflowWrap: "break-word",
-          paddingRight: "0.5rem"
+          height: "3px",
+          background: "rgba(255,255,255,0.3)",
+          position: "relative"
         }}>
-          {announcement.message}
+          <div style={{
+            height: "100%",
+            background: "rgba(255,255,255,0.8)",
+            borderRadius: "0 0 0 16px",
+            animation: `progress ${announcement.duration || 30}s linear forwards`
+          }} />
         </div>
       </div>
-      
-      {/* Progress bar */}
-      <div
-        style={{
-          position: "absolute",
-          bottom: 0,
-          left: 0,
-          height: "4px",
-          background: "rgba(255,255,255,0.5)",
-          animation: `shrink ${announcement.duration || 30}s linear forwards`
-        }}
-      />
 
       <style>{`
-        @keyframes slideDown {
-          from { opacity: 0; transform: translateY(-20px); }
-          to { opacity: 1; transform: translateY(0); }
+        @keyframes slideInDown {
+          from { 
+            opacity: 0; 
+            transform: translateX(-50%) translateY(-30px) scale(0.95); 
+          }
+          to { 
+            opacity: 1; 
+            transform: translateX(-50%) translateY(0) scale(1); 
+          }
         }
-        @keyframes shrink {
+        @keyframes progress {
           from { width: 100%; }
           to { width: 0%; }
-        }
-        @keyframes marquee {
-          0% { transform: translateX(0); }
-          100% { transform: translateX(-50%); }
         }
       `}</style>
     </div>
