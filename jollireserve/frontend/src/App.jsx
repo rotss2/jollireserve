@@ -92,7 +92,7 @@ function AppInner() {
       <MusicPlayer />
 
       <Routes>
-        <Route path="/" element={<Home />} />
+        <Route path="/" element={<Home user={user} />} />
         <Route path="/login" element={<Login onAuthed={setUser} />} />
 
         <Route path="/queue" element={
@@ -111,7 +111,7 @@ function AppInner() {
         } />
         <Route path="/admin" element={<AdminRoute user={user}><Admin /></AdminRoute>} />
         <Route path="/checkin/:id" element={<Checkin />} />
-        <Route path="*" element={<Home />} />
+        <Route path="*" element={<Home user={user} />} />
       </Routes>
 
       {/* ✅ UNESCAPABLE SUSPENSION MODAL */}
