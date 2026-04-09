@@ -178,6 +178,52 @@ router.get("/activity", requireAuth, async (req, res) => {
   }
 });
 
+// ── Update Profile ────────────────────────────────────────
+router.post("/profile", requireAuth, async (req, res) => {
+  try {
+    const { name, phone, preferences } = req.body || {};
+    const db = getDb();
+    const updateData = {};
+    if (name !== undefined) updateData.name = name;
+    if (phone !== undefined) updateData.phone = phone;
+    if (preferences !== undefined) updateData.preferences = preferences;
+    
+    await db.collection("users").doc(req.user.id).update(updateData);
+    await logActivity(req.user.id, "profile_updated", { fields: Object.keys(updateData) });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── Change Password ─────────────────────────────────────
+router.post("/password", requireAuth, async (req, res) => {
+  try {
+    const { current_password, new_password } = req.body || {};
+    if (!current_password || !new_password) {
+      return res.status(400).json({ error: "Current and new password required" });
+    }
+    if (new_password.length < 6) {
+      return res.status(400).json({ error: "Password must be at least 6 characters" });
+    }
+    
+    const db = getDb();
+    const userDoc = await db.collection("users").doc(req.user.id).get();
+    if (!userDoc.exists) return res.status(404).json({ error: "User not found" });
+    
+    const user = userDoc.data();
+    const valid = await bcrypt.compare(current_password, user.password_hash);
+    if (!valid) return res.status(401).json({ error: "Current password is incorrect" });
+    
+    const hash = bcrypt.hashSync(new_password, 10);
+    await db.collection("users").doc(req.user.id).update({ password_hash: hash });
+    await logActivity(req.user.id, "password_changed", {});
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ── Request Verification ──────────────────────────────────
 router.post("/request-verification", async (req, res) => {
   try {

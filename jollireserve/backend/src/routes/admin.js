@@ -350,4 +350,40 @@ router.delete("/announcements/:id", async (req, res) => {
   }
 });
 
+// ── Admin Activity Feed ────────────────────────────────────
+router.get("/activity", async (req, res) => {
+  try {
+    const db = getDb();
+    const { limit = 50, userId } = req.query;
+    
+    let query = db.collection("activity_logs")
+      .orderBy("created_at", "desc")
+      .limit(Number(limit));
+    
+    if (userId) {
+      query = query.where("user_id", "==", userId);
+    }
+    
+    const snapshot = await query.get();
+    const activity = await Promise.all(snapshot.docs.map(async (doc) => {
+      const data = doc.data();
+      // Get user info for each activity
+      let userInfo = { email: "Unknown", name: "Unknown" };
+      if (data.user_id) {
+        const userDoc = await db.collection("users").doc(data.user_id).get();
+        if (userDoc.exists) {
+          const user = userDoc.data();
+          userInfo = { email: user.email, name: user.name };
+        }
+      }
+      return { ...data, user: userInfo };
+    }));
+    
+    res.json({ activity });
+  } catch (e) {
+    console.error("Get activity error:", e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 module.exports = router;

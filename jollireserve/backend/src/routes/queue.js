@@ -1,6 +1,5 @@
 const express = require("express");
 const { v4: uuid } = require("uuid");
-const { dbConn } = require("../db");
 const { getDb } = require("../firebase");
 const { isoNow } = require("../utils/time");
 const { requireAuth, requireRole } = require("../middleware/auth");
@@ -9,6 +8,28 @@ const { sendMail } = require("../utils/email");
 const { broadcast } = require('../ws');
 
 const router = express.Router();
+
+// Activity logging helper
+async function logActivity(userId, action, details = {}) {
+  try {
+    const db = getDb();
+    await db.collection("activity_logs").add({
+      id: uuid(),
+      user_id: userId,
+      action,
+      details,
+      created_at: isoNow()
+    });
+    
+    // Broadcast to admin via WebSocket
+    broadcast({
+      type: "activity",
+      activity: { user_id: userId, action, details, created_at: isoNow() }
+    });
+  } catch (e) {
+    console.error("Activity log error:", e.message);
+  }
+}
 
 // Join queue (auth optional: allow guests)
 router.post("/join", async (req, res) => {
@@ -33,6 +54,11 @@ router.post("/join", async (req, res) => {
     };
     
     await queueCol.doc(id).set(entryData);
+
+    // Log activity if user_id provided
+    if (user_id) {
+      await logActivity(user_id, "queue_joined", { party_size, name });
+    }
 
     // Optional notify: "joined queue"
     if (email) {

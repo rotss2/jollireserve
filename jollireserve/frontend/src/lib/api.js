@@ -52,6 +52,22 @@ export const api = {
     const res = await instance.get("/auth/me");
     return res.data;
   },
+  async logout() {
+    const res = await instance.post("/auth/logout");
+    return res.data;
+  },
+  async getActivity() {
+    const res = await instance.get("/auth/activity");
+    return res.data;
+  },
+  async updateProfile(payload) {
+    const res = await instance.post("/auth/profile", payload);
+    return res.data;
+  },
+  async changePassword(payload) {
+    const res = await instance.post("/auth/password", payload);
+    return res.data;
+  },
 
   // ── Reservations (user) ───────────────────────────────
   async myReservations() {

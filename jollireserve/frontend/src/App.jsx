@@ -12,6 +12,7 @@ import Scan from "./pages/Scan";
 import Checkin from "./pages/Checkin";
 import TV from "./pages/TV";
 import QueueStatus from "./pages/Queuestatus";
+import Profile from "./pages/Profile";
 import Notifications from "./components/Notifications";
 import MusicPlayer from "./components/MusicPlayer";
 import AnnouncementBanner from "./components/AnnouncementBanner";
@@ -112,6 +113,11 @@ function AppInner() {
           </ProtectedRoute>
         } />
         <Route path="/admin" element={<AdminRoute user={user}><Admin /></AdminRoute>} />
+        <Route path="/profile" element={
+          <ProtectedRoute user={user}>
+            <Profile user={user} />
+          </ProtectedRoute>
+        } />
         <Route path="/checkin/:id" element={<Checkin />} />
         <Route path="*" element={<Home user={user} />} />
       </Routes>
