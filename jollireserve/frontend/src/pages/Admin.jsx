@@ -56,7 +56,7 @@ export default function Admin({ user }) {
         api.analyticsUtil(range.from, range.to),
         api.adminTables(),
         api.adminUsers(),
-        api.adminSettings?.().catch(() => null),
+        api.adminGetSettings?.().catch(() => null),
         api.adminActivity?.().catch(() => ({ activity: [] })),
       ]);
       if (s.status === "fulfilled") {
@@ -83,8 +83,8 @@ export default function Admin({ user }) {
           admin: userData.filter(u => u.role === "admin").length
         });
       }
-      if (st.status === "fulfilled" && st.value) {
-        setSettings(st.value);
+      if (st.status === "fulfilled" && st.value?.settings) {
+        setSettings(st.value.settings);
       }
       if (act.status === "fulfilled" && act.value) {
         setAdminActivity(act.value.activity || []);
