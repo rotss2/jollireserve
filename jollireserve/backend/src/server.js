@@ -66,29 +66,37 @@ app.use((err, req, res, next) => {
 // ─── Async startup ────────────────────────────────────────────────────────────
 async function autoSeed() {
   try {
-    const db = dbConn();
-    const existing = await db
-      .prepare("SELECT id FROM users WHERE email=?")
-      .get("admin@jollireserve.local");
+    const { getDb } = require("./firebase");
+    const db = getDb();
+    const usersCol = db.collection("users");
+    const tablesCol = db.collection("tables");
+    
+    // Check if admin exists
+    const existing = await usersCol.where("email", "==", "admin@jollireserve.local").limit(1).get();
 
-    if (!existing) {
-      await db
-        .prepare(
-          "INSERT INTO users (id, email, password_hash, name, role, is_verified, created_at) VALUES (?, ?, ?, ?, ?, 1, ?)"
-        )
-        .run(uuid(), "admin@jollireserve.local", bcrypt.hashSync("Admin123!", 10), "Admin", "admin", isoNow());
-
-      await db
-        .prepare(
-          "INSERT INTO users (id, email, password_hash, name, role, is_verified, created_at) VALUES (?, ?, ?, ?, ?, 1, ?)"
-        )
-        .run(uuid(), "staff@jollireserve.local", bcrypt.hashSync("Staff123!", 10), "Staff", "staff", isoNow());
-
-      await db
-        .prepare(
-          "INSERT INTO users (id, email, password_hash, name, role, is_verified, created_at) VALUES (?, ?, ?, ?, ?, 1, ?)"
-        )
-        .run(uuid(), "user@jollireserve.local", bcrypt.hashSync("User123!", 10), "Guest User", "customer", isoNow());
+    if (existing.empty) {
+      // Seed users
+      const users = [
+        { email: "admin@jollireserve.local", password: "Admin123!", name: "Admin", role: "admin" },
+        { email: "staff@jollireserve.local", password: "Staff123!", name: "Staff", role: "staff" },
+        { email: "user@jollireserve.local", password: "User123!", name: "Guest User", role: "customer" }
+      ];
+      
+      const batch = db.batch();
+      for (const u of users) {
+        const id = uuid();
+        const ref = usersCol.doc(id);
+        batch.set(ref, {
+          id,
+          email: u.email,
+          password_hash: bcrypt.hashSync(u.password, 10),
+          name: u.name,
+          role: u.role,
+          is_verified: 1,
+          created_at: isoNow()
+        });
+      }
+      await batch.commit();
 
       // Seed default tables
       const tables = [
@@ -101,11 +109,19 @@ async function autoSeed() {
         { name: "T7", area: "vip", capacity: 8 },
       ];
 
+      const tableBatch = db.batch();
       for (const t of tables) {
-        await db
-          .prepare("INSERT INTO tables (id, name, area, capacity, is_active) VALUES (?, ?, ?, ?, 1)")
-          .run(uuid(), t.name, t.area, t.capacity);
+        const id = uuid();
+        const ref = tablesCol.doc(id);
+        tableBatch.set(ref, {
+          id,
+          name: t.name,
+          area: t.area,
+          capacity: t.capacity,
+          is_active: 1
+        });
       }
+      await tableBatch.commit();
 
       console.log("✅ Auto-seed complete!");
     } else {
