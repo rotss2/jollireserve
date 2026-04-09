@@ -172,16 +172,22 @@ export default function Admin({ user }) {
   }
 
   async function sendAnnouncement() {
+    console.log("[Admin] Send announcement clicked", newAnnouncement);
     if (!newAnnouncement.title || !newAnnouncement.message) {
       err({ message: "Title and message are required" });
       return;
     }
     try {
-      await api.createAnnouncement?.(newAnnouncement);
+      console.log("[Admin] Calling api.createAnnouncement...");
+      const result = await api.createAnnouncement(newAnnouncement);
+      console.log("[Admin] Announcement created:", result);
       ok("Announcement sent to all users!");
       setNewAnnouncement({ title: "", message: "", type: "info", duration: 30 });
       loadAnnouncements();
-    } catch (e) { err(e); }
+    } catch (e) { 
+      console.error("[Admin] Failed to send announcement:", e);
+      err(e); 
+    }
   }
 
   async function deleteAnnouncement(id) {

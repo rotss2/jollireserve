@@ -327,9 +327,15 @@ router.get("/announcements", async (req, res) => {
 // Create announcement
 router.post("/announcements", async (req, res) => {
   try {
+    console.log("[Admin API] Create announcement - req.user:", req.user);
     const { title, message, type = "info", duration = 30 } = req.body;
     if (!title || !message) {
       return res.status(400).json({ error: "Title and message required" });
+    }
+
+    if (!req.user || !req.user.id) {
+      console.error("[Admin API] No user in request");
+      return res.status(401).json({ error: "Unauthorized - no user" });
     }
 
     const db = getDb();
@@ -343,6 +349,7 @@ router.post("/announcements", async (req, res) => {
       created_at: isoNow(),
       created_by: req.user.id
     };
+    console.log("[Admin API] Saving announcement:", announcementData);
 
     await db.collection("announcements").doc(id).set(announcementData);
 
