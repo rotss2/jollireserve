@@ -37,8 +37,16 @@ function initFirebase() {
     // Fallback to inline JSON - handle newlines properly
     try {
       let jsonStr = process.env.FIREBASE_SERVICE_ACCOUNT;
-      // Replace literal \n with actual newlines for private key
-      jsonStr = jsonStr.replace(/\\n/g, '\n');
+      
+      // Check if it's base64 encoded
+      if (jsonStr.startsWith('eyJ')) {
+        // It's base64, decode it
+        jsonStr = Buffer.from(jsonStr, 'base64').toString('utf8');
+      } else {
+        // Replace literal \n with actual newlines for private key
+        jsonStr = jsonStr.replace(/\\n/g, '\n');
+      }
+      
       const serviceAccount = JSON.parse(jsonStr);
       app = initializeApp({
         credential: cert(serviceAccount),
