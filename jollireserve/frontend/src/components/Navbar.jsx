@@ -49,10 +49,15 @@ export default function Navbar({ user, onLogout }) {
           </button>
           {user ? (
             <>
-              <span className="navbar-pill px-3 py-1 rounded-full bg-white/70 border border-black/10 text-sm">
-                {user.role === "customer" ? "Customer" : user.role.toUpperCase()} · {user.name || user.email}
-              </span>
-              <button className="btn btn-outline" onClick={() => { onLogout(); navigate("/login"); }}>
+              <Link 
+                to="/profile" 
+                className={`flex items-center gap-2 px-3 py-1 rounded-full text-sm font-semibold ${active("/profile")}`}
+                title="My Profile"
+              >
+                <span style={{ fontSize: '1.1rem' }}>👤</span>
+                <span className="hidden sm:inline">{user.name || user.email}</span>
+              </Link>
+              <button className="btn btn-outline text-sm" onClick={() => { onLogout(); navigate("/login"); }}>
                 Logout
               </button>
             </>
@@ -116,9 +121,13 @@ export default function Navbar({ user, onLogout }) {
 
           {user ? (
             <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-              <span className="navbar-pill px-3 py-2 rounded-full bg-white/70 border border-black/10 text-sm text-center">
-                {user.role === "customer" ? "Customer" : user.role.toUpperCase()} · {user.name || user.email}
-              </span>
+              <Link 
+                className={`px-4 py-2 rounded-full text-sm font-semibold ${active("/profile")}`} 
+                to="/profile" 
+                onClick={() => setMenuOpen(false)}
+              >
+                👤 My Profile
+              </Link>
               <button className="btn btn-outline w-full" onClick={() => { onLogout(); navigate("/login"); setMenuOpen(false); }}>
                 Logout
               </button>
