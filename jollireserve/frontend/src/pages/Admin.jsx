@@ -467,16 +467,22 @@ export default function Admin({ user }) {
           <div className="font-black mb-4">📢 Global Announcements</div>
           
           {/* Create New Announcement */}
-          <div className="mb-4 p-4" style={{ background: "var(--bg-subtle)", borderRadius: "0.75rem" }}>
+          <form className="mb-4 p-4" style={{ background: "var(--bg-subtle)", borderRadius: "0.75rem" }} onSubmit={(e) => { e.preventDefault(); sendAnnouncement(); }}>
             <div className="font-semibold mb-3">Send New Announcement</div>
+            <label htmlFor="ann-title" className="text-sm" style={{ display: "block", marginBottom: "0.25rem" }}>Title:</label>
             <input
+              id="ann-title"
+              name="title"
               type="text"
               placeholder="Announcement Title"
               value={newAnnouncement.title}
               onChange={e => setNewAnnouncement(prev => ({ ...prev, title: e.target.value }))}
               style={{ width: "100%", marginBottom: "0.75rem", padding: "0.6rem 0.75rem", borderRadius: "0.5rem", border: "1px solid var(--border)", background: "var(--bg-input)", color: "var(--text-main)" }}
             />
+            <label htmlFor="ann-message" className="text-sm" style={{ display: "block", marginBottom: "0.25rem" }}>Message:</label>
             <textarea
+              id="ann-message"
+              name="message"
               placeholder="Message to all users..."
               value={newAnnouncement.message}
               onChange={e => setNewAnnouncement(prev => ({ ...prev, message: e.target.value }))}
@@ -484,7 +490,10 @@ export default function Admin({ user }) {
               style={{ width: "100%", marginBottom: "0.75rem", padding: "0.6rem 0.75rem", borderRadius: "0.5rem", border: "1px solid var(--border)", background: "var(--bg-input)", color: "var(--text-main)", resize: "vertical" }}
             />
             <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", marginBottom: "0.75rem" }}>
+              <label htmlFor="ann-type" className="text-sm">Type:</label>
               <select
+                id="ann-type"
+                name="type"
                 value={newAnnouncement.type}
                 onChange={e => setNewAnnouncement(prev => ({ ...prev, type: e.target.value }))}
                 style={{ padding: "0.5rem 0.75rem", borderRadius: "0.5rem", border: "1px solid var(--border)", background: "var(--bg-input)", color: "var(--text-main)" }}
@@ -495,8 +504,10 @@ export default function Admin({ user }) {
                 <option value="error">🚨 Urgent (Red)</option>
               </select>
               <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                <label className="text-sm">Duration:</label>
+                <label htmlFor="ann-duration" className="text-sm">Duration:</label>
                 <input
+                  id="ann-duration"
+                  name="duration"
                   type="number"
                   min="5"
                   max="300"
@@ -507,10 +518,10 @@ export default function Admin({ user }) {
                 <span className="text-sm">seconds</span>
               </div>
             </div>
-            <button className="btn btn-red" onClick={sendAnnouncement}>
+            <button type="submit" className="btn btn-red">
               📢 Send to All Users
             </button>
-          </div>
+          </form>
 
           {/* Previous Announcements */}
           <div>
