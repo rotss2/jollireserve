@@ -89,11 +89,35 @@ export default function Profile({ user }) {
     setLoading(true);
     try {
       console.log("[Profile] Loading data for user:", user?.id);
-      const [activityData, reservationsData, queueData] = await Promise.all([
-        api.getActivity?.().catch((e) => { console.error("[Profile] Activity error:", e); return { activity: [] }; }),
-        api.myReservations?.().catch((e) => { console.error("[Profile] Reservations error:", e); return { reservations: [] }; }),
-        api.queueHistory?.().catch((e) => { console.error("[Profile] Queue error:", e); return { entries: [] }; })
-      ]);
+      console.log("[Profile] User object:", user);
+      
+      // Test each API call individually for better debugging
+      let activityData, reservationsData, queueData;
+      
+      try {
+        activityData = await api.getActivity?.();
+        console.log("[Profile] Activity raw response:", activityData);
+      } catch (e) {
+        console.error("[Profile] Activity error:", e?.response?.data || e.message);
+        activityData = { activity: [] };
+      }
+      
+      try {
+        reservationsData = await api.myReservations?.();
+        console.log("[Profile] Reservations raw response:", reservationsData);
+      } catch (e) {
+        console.error("[Profile] Reservations error:", e?.response?.data || e.message);
+        reservationsData = { reservations: [] };
+      }
+      
+      try {
+        queueData = await api.queueHistory?.();
+        console.log("[Profile] Queue raw response:", queueData);
+      } catch (e) {
+        console.error("[Profile] Queue error:", e?.response?.data || e.message);
+        queueData = { entries: [] };
+      }
+      
       console.log("[Profile] Loaded:", { 
         activity: activityData?.activity?.length || 0, 
         reservations: reservationsData?.reservations?.length || 0, 
