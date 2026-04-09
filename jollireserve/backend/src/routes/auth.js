@@ -22,7 +22,7 @@ async function logActivity(userId, action, details = {}) {
     });
     
     // Broadcast to admin via WebSocket
-    const { broadcast } = require("../websocket");
+    const { broadcast } = require("../ws");
     broadcast({
       type: "activity",
       activity: { user_id: userId, action, details, created_at: isoNow() }

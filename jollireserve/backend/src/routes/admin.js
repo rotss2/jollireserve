@@ -354,7 +354,7 @@ router.post("/announcements", async (req, res) => {
     await db.collection("announcements").doc(id).set(announcementData);
 
     // Broadcast to all connected clients via WebSocket
-    const { broadcast } = require("../websocket");
+    const { broadcast } = require("../ws");
     broadcast({
       type: "announcement",
       announcement: announcementData
