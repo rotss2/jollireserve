@@ -11,7 +11,7 @@ function toISO(d) {
   return `${dd.getFullYear()}-${String(dd.getMonth() + 1).padStart(2, "0")}-${String(dd.getDate()).padStart(2, "0")}`;
 }
 
-const TABS = ["Dashboard", "Tables", "Users", "Announcements", "Settings"];
+const TABS = ["Dashboard", "Tables", "Users", "Activity", "Announcements", "Settings"];
 
 export default function Admin({ user }) {
   const [tab, setTab] = useState("Dashboard");
@@ -35,6 +35,7 @@ export default function Admin({ user }) {
   });
   const [recentActivity, setRecentActivity] = useState([]);
   const [userStats, setUserStats] = useState({ total: 0, newToday: 0, suspended: 0, staff: 0, admin: 0 });
+  const [adminActivity, setAdminActivity] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
   const [newAnnouncement, setNewAnnouncement] = useState({ title: "", message: "", type: "info", duration: 30 });
 
@@ -49,13 +50,14 @@ export default function Admin({ user }) {
 
   async function loadAll() {
     try {
-      const [s, d, u, t, us, st] = await Promise.allSettled([
+      const [s, d, u, t, us, st, act] = await Promise.allSettled([
         api.analyticsSummary(),
         api.analyticsByDay(range.from, range.to),
         api.analyticsUtil(range.from, range.to),
         api.adminTables(),
         api.adminUsers(),
         api.adminSettings?.().catch(() => null),
+        api.adminActivity?.().catch(() => ({ activity: [] })),
       ]);
       if (s.status === "fulfilled") {
         setSummary(s.value);
@@ -84,6 +86,9 @@ export default function Admin({ user }) {
       if (st.status === "fulfilled" && st.value) {
         setSettings(st.value);
       }
+      if (act.status === "fulfilled" && act.value) {
+        setAdminActivity(act.value.activity || []);
+      }
     } catch (e) { err(e); }
   }
 
@@ -111,6 +116,9 @@ export default function Admin({ user }) {
     connectWS();
     const off = onWSMessage((msg) => {
       if (["queue:changed", "reservations:changed", "tables:changed"].includes(msg.type)) loadAll();
+      if (msg.type === "activity" && msg.activity) {
+        setAdminActivity(prev => [msg.activity, ...prev].slice(0, 50));
+      }
     });
     return () => off();
   }, []);
@@ -517,6 +525,49 @@ export default function Admin({ user }) {
                     </div>
                   </div>
                   <button style={{ ...btnSm, color: "#ef4444" }} onClick={() => deleteAnnouncement(a.id)}>🗑 Delete</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {tab === "Activity" && (
+        <div className="card p-5">
+          <div className="font-black mb-4">📋 Live Activity Feed</div>
+          <p className="text-sm mb-4" style={{ color: "var(--text-muted)" }}>
+            Real-time tracking of user actions. Updates automatically when users login, make reservations, join queue, etc.
+          </p>
+          
+          <div style={{ maxHeight: 500, overflowY: "auto" }}>
+            {adminActivity.length === 0 && (
+              <div className="text-sm text-center py-8" style={{ color: "var(--text-muted)" }}>
+                No activity recorded yet. Actions will appear here when users interact with the system.
+              </div>
+            )}
+            {adminActivity.map((a, idx) => (
+              <div key={a.id || idx} className="flex items-start gap-3 p-3 mb-2" style={{ background: "var(--bg-subtle)", borderRadius: "0.5rem", borderLeft: `3px solid ${
+                a.action?.includes('login') ? '#10b981' :
+                a.action?.includes('reservation') ? '#3b82f6' :
+                a.action?.includes('queue') ? '#f59e0b' : '#6b7280'
+              }` }}>
+                <div style={{ fontSize: 20 }}>
+                  {a.action?.includes('login') ? '🔑' :
+                   a.action?.includes('logout') ? '👋' :
+                   a.action?.includes('reservation') ? '📅' :
+                   a.action?.includes('queue') ? '🐝' : '📌'}
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div className="font-medium">
+                    {a.user?.email || a.user_id?.slice(0, 8) + '...'}
+                  </div>
+                  <div className="text-sm" style={{ color: "var(--text-muted)" }}>
+                    {a.action?.replace(/_/g, ' ')}
+                    {a.details?.party_size && ` (${a.details.party_size} guests)`}
+                  </div>
+                  <div className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
+                    {a.created_at?.slice(0, 19).replace('T', ' ')}
+                  </div>
                 </div>
               </div>
             ))}

@@ -164,6 +164,10 @@ export const api = {
     const res = await instance.get("/admin/users");
     return res.data;
   },
+  async adminActivity(limit = 50) {
+    const res = await instance.get(`/admin/activity?limit=${limit}`);
+    return res.data;
+  },
   async adminUpdateUserRole(id, role) {
     const res = await instance.patch(`/admin/users/${id}/role`, { role });
     return res.data;
