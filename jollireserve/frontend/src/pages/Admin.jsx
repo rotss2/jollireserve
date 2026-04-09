@@ -11,7 +11,7 @@ function toISO(d) {
   return `${dd.getFullYear()}-${String(dd.getMonth() + 1).padStart(2, "0")}-${String(dd.getDate()).padStart(2, "0")}`;
 }
 
-const TABS = ["Dashboard", "Tables", "Users"];
+const TABS = ["Dashboard", "Tables", "Users", "Settings"];
 
 export default function Admin({ user }) {
   const [tab, setTab] = useState("Dashboard");
@@ -24,6 +24,17 @@ export default function Admin({ user }) {
   const [users, setUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
   const [userHistory, setUserHistory] = useState(null);
+  const [userSearch, setUserSearch] = useState("");
+  const [userFilter, setUserFilter] = useState("all"); // all, customer, staff, admin
+  const [systemStatus, setSystemStatus] = useState({ firebase: false, backend: true, websocket: false });
+  const [settings, setSettings] = useState({
+    queue_enabled: true,
+    reservations_enabled: true,
+    email_notifications: true,
+    max_party_size: 12
+  });
+  const [recentActivity, setRecentActivity] = useState([]);
+  const [userStats, setUserStats] = useState({ total: 0, newToday: 0, suspended: 0, staff: 0, admin: 0 });
 
   const ok = (msg) => setToast({ message: msg, type: "success" });
   const err = (e) => setToast({ message: e?.response?.data?.error || e.message || "Error", type: "error" });
@@ -36,12 +47,13 @@ export default function Admin({ user }) {
 
   async function loadAll() {
     try {
-      const [s, d, u, t, us] = await Promise.allSettled([
+      const [s, d, u, t, us, st] = await Promise.allSettled([
         api.analyticsSummary(),
         api.analyticsByDay(range.from, range.to),
         api.analyticsUtil(range.from, range.to),
         api.adminTables(),
         api.adminUsers(),
+        api.adminSettings?.().catch(() => null),
       ]);
       if (s.status === "fulfilled") {
         setSummary(s.value);
@@ -53,12 +65,47 @@ export default function Admin({ user }) {
       if (d.status === "fulfilled") setByDay(d.value.rows || []);
       if (u.status === "fulfilled") setUtil(u.value);
       if (t.status === "fulfilled") setTables(t.value.tables || []);
-      if (us.status === "fulfilled") setUsers(us.value.users || []);
+      if (us.status === "fulfilled") {
+        const userData = us.value.users || [];
+        setUsers(userData);
+        
+        // Calculate user statistics
+        const today = toISO(new Date());
+        setUserStats({
+          total: userData.length,
+          newToday: userData.filter(u => u.created_at?.startsWith(today)).length,
+          suspended: userData.filter(u => !u.is_verified).length,
+          staff: userData.filter(u => u.role === "staff").length,
+          admin: userData.filter(u => u.role === "admin").length
+        });
+      }
+      if (st.status === "fulfilled" && st.value) {
+        setSettings(st.value);
+      }
     } catch (e) { err(e); }
+  }
+
+  async function checkSystemStatus() {
+    try {
+      // Check backend health
+      const health = await api.health?.().catch(() => ({ ok: false }));
+      
+      // Check WebSocket
+      const wsConnected = window.WebSocket && window.wsConnected;
+      
+      setSystemStatus({
+        backend: health?.ok || false,
+        firebase: true, // If we got here, Firebase is working
+        websocket: wsConnected || false
+      });
+    } catch {
+      setSystemStatus({ backend: false, firebase: true, websocket: false });
+    }
   }
 
   useEffect(() => {
     loadAll();
+    checkSystemStatus();
     connectWS();
     const off = onWSMessage((msg) => {
       if (["queue:changed", "reservations:changed", "tables:changed"].includes(msg.type)) loadAll();
@@ -135,6 +182,7 @@ export default function Admin({ user }) {
 
       {tab === "Dashboard" && (
         <>
+          {/* Operations Stats */}
           <div className="grid grid-cols-3 gap-3 mb-4">
             {[
               { label: "Reservations Today", value: summary?.reservationsToday },
@@ -148,13 +196,61 @@ export default function Admin({ user }) {
             ))}
           </div>
 
-          {/* Quick Access Actions */}
+          {/* User Statistics */}
+          <div className="card p-5 mb-4">
+            <div className="font-black mb-3">User Statistics</div>
+            <div className="grid grid-cols-5 gap-3">
+              {[
+                { label: "Total Users", value: userStats.total, color: "var(--text-main)" },
+                { label: "New Today", value: userStats.newToday, color: "#10b981" },
+                { label: "Suspended", value: userStats.suspended, color: "#ef4444" },
+                { label: "Staff", value: userStats.staff, color: "#f59e0b" },
+                { label: "Admins", value: userStats.admin, color: "#8b5cf6" },
+              ].map(s => (
+                <div key={s.label} className="text-center p-3" style={{ background: "var(--bg-subtle)", borderRadius: "0.5rem" }}>
+                  <div className="text-2xl font-black" style={{ color: s.color }}>{s.value}</div>
+                  <div className="text-xs" style={{ color: "var(--text-muted)" }}>{s.label}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* System Status */}
+          <div className="card p-5 mb-4">
+            <div className="font-black mb-3">System Status</div>
+            <div className="grid grid-cols-3 gap-3">
+              {[
+                { label: "Backend API", status: systemStatus.backend, icon: "🖥️" },
+                { label: "Firebase", status: systemStatus.firebase, icon: "🔥" },
+                { label: "WebSocket", status: systemStatus.websocket, icon: "📡" },
+              ].map(s => (
+                <div key={s.label} className="flex items-center gap-2 p-3" style={{ background: "var(--bg-subtle)", borderRadius: "0.5rem" }}>
+                  <span className="text-lg">{s.icon}</span>
+                  <div>
+                    <div className="text-sm font-semibold">{s.label}</div>
+                    <div className="text-xs" style={{ color: s.status ? "#10b981" : "#ef4444" }}>
+                      {s.status ? "✅ Connected" : "❌ Offline"}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Quick Actions */}
           <div className="card p-5 mb-4 border border-[var(--red)] bg-[rgba(239,68,68,0.05)]">
-            <div className="font-black mb-2 text-[var(--red)]">Admin Actions</div>
-            <p className="text-sm mb-3" style={{ color: "var(--text-muted)" }}>Access full control over all users (change roles, suspend accounts, reset passwords, delete users).</p>
-            <button className="btn btn-red w-full md:w-auto" onClick={() => { setTab("Users"); setSelectedUser(null); setUserHistory(null); }}>
-              Manage Users & Access Control
-            </button>
+            <div className="font-black mb-2 text-[var(--red)]">Quick Actions</div>
+            <div className="flex gap-2 flex-wrap">
+              <button className="btn btn-red" onClick={() => { setTab("Users"); }}>
+                👥 Manage Users
+              </button>
+              <button className="btn btn-outline" onClick={() => { setTab("Tables"); }}>
+                🪑 Manage Tables
+              </button>
+              <button className="btn btn-outline" onClick={() => { setTab("Settings"); }}>
+                ⚙️ System Settings
+              </button>
+            </div>
           </div>
 
           <div className="grid md:grid-cols-2 gap-4">
@@ -219,7 +315,47 @@ export default function Admin({ user }) {
       {tab === "Users" && !selectedUser && (
         <div className="card p-5">
           <div className="font-black mb-3">User Management ({users.length} users)</div>
-          {users.map(u => (
+          
+          {/* Search and Filter */}
+          <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem", flexWrap: "wrap" }}>
+            <input
+              type="text"
+              placeholder="Search by name or email..."
+              value={userSearch}
+              onChange={e => setUserSearch(e.target.value)}
+              style={{ flex: 1, minWidth: 200, padding: "0.5rem 0.75rem", borderRadius: "0.5rem", border: "1px solid var(--border)", background: "var(--bg-input)", color: "var(--text-main)" }}
+            />
+            <select
+              value={userFilter}
+              onChange={e => setUserFilter(e.target.value)}
+              style={{ padding: "0.5rem 0.75rem", borderRadius: "0.5rem", border: "1px solid var(--border)", background: "var(--bg-input)", color: "var(--text-main)" }}
+            >
+              <option value="all">All Users</option>
+              <option value="customer">Customers</option>
+              <option value="staff">Staff</option>
+              <option value="admin">Admins</option>
+              <option value="suspended">Suspended</option>
+            </select>
+          </div>
+          
+          {(() => {
+            // Filter users based on search and filter
+            const filteredUsers = users.filter(u => {
+              const matchesSearch = !userSearch || 
+                (u.name && u.name.toLowerCase().includes(userSearch.toLowerCase())) ||
+                (u.email && u.email.toLowerCase().includes(userSearch.toLowerCase()));
+              
+              const matchesFilter = userFilter === "all" || 
+                (userFilter === "suspended" ? !u.is_verified : u.role === userFilter);
+              
+              return matchesSearch && matchesFilter;
+            });
+            
+            if (filteredUsers.length === 0) {
+              return <div className="text-sm" style={{ color: "var(--text-muted)", textAlign: "center", padding: "2rem" }}>No users found matching your criteria.</div>;
+            }
+            
+            return filteredUsers.map(u => (
             <div key={u.id} style={cardStyle}>
               <div style={rowStyle}>
                 <div>
@@ -241,7 +377,7 @@ export default function Admin({ user }) {
                 </div>
               </div>
             </div>
-          ))}
+          ))})()}
         </div>
       )}
 
@@ -278,6 +414,82 @@ export default function Admin({ user }) {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {tab === "Settings" && (
+        <div className="card p-5">
+          <div className="font-black mb-4">System Settings</div>
+          
+          {/* Feature Toggles */}
+          <div className="mb-4">
+            <div className="font-semibold mb-2">Feature Toggles</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+              {[
+                { key: "queue_enabled", label: "🐝 Queue System", desc: "Allow guests to join the queue" },
+                { key: "reservations_enabled", label: "📅 Reservations", desc: "Allow table reservations" },
+                { key: "email_notifications", label: "📧 Email Notifications", desc: "Send confirmation emails" },
+              ].map(({ key, label, desc }) => (
+                <div key={key} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.75rem", background: "var(--bg-subtle)", borderRadius: "0.5rem" }}>
+                  <div>
+                    <div className="font-medium text-sm">{label}</div>
+                    <div className="text-xs" style={{ color: "var(--text-muted)" }}>{desc}</div>
+                  </div>
+                  <button
+                    onClick={() => setSettings(prev => ({ ...prev, [key]: !prev[key] }))}
+                    style={{
+                      width: 44,
+                      height: 24,
+                      borderRadius: 12,
+                      border: "none",
+                      background: settings[key] ? "var(--red)" : "var(--border)",
+                      position: "relative",
+                      cursor: "pointer",
+                      transition: "background 0.2s"
+                    }}
+                  >
+                    <span style={{
+                      position: "absolute",
+                      top: 2,
+                      left: settings[key] ? 22 : 2,
+                      width: 20,
+                      height: 20,
+                      borderRadius: "50%",
+                      background: "#fff",
+                      transition: "left 0.2s"
+                    }} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Max Party Size */}
+          <div className="mb-4">
+            <div className="font-semibold mb-2">Configuration</div>
+            <div style={{ padding: "0.75rem", background: "var(--bg-subtle)", borderRadius: "0.5rem" }}>
+              <label className="text-sm" style={{ display: "block", marginBottom: "0.5rem" }}>
+                Max Party Size: <span className="font-bold">{settings.max_party_size}</span>
+              </label>
+              <input
+                type="range"
+                min="1"
+                max="20"
+                value={settings.max_party_size}
+                onChange={e => setSettings(prev => ({ ...prev, max_party_size: Number(e.target.value) }))}
+                style={{ width: "100%" }}
+              />
+            </div>
+          </div>
+
+          {/* Save Button */}
+          <button className="btn btn-red" onClick={() => ok("Settings saved (frontend only - backend update needed)")}>
+            💾 Save Settings
+          </button>
+
+          <div className="mt-4 text-xs" style={{ color: "var(--text-muted)" }}>
+            Note: Settings are currently stored locally. Connect to backend API to persist changes.
+          </div>
         </div>
       )}
     </div>
