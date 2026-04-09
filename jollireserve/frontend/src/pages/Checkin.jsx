@@ -16,10 +16,10 @@ export default function Checkin() {
   async function markCheckin(){
     setLoading(true);
     try{
-      await api.checkinReservation(id);
+      await api.adminCheckinReservation(id);
       setToast({ message:"Reservation checked-in!", type:"success" });
     }catch(e){
-      setToast({ message: e?.message || "Check-in failed (staff/admin only).", type:"error" });
+      setToast({ message: e?.response?.data?.error || "Check-in failed (staff/admin only).", type:"error" });
     }finally{
       setLoading(false);
     }
