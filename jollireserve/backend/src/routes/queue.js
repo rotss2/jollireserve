@@ -121,6 +121,27 @@ router.get("/active", async (req, res) => {
   }
 });
 
+// Get user's queue history (all statuses)
+router.get("/history", requireAuth, async (req, res) => {
+  try {
+    const db = getDb();
+    const queueCol = db.collection("queue_entries");
+    
+    // Get all entries for this user (including seated, cancelled, etc.)
+    const snapshot = await queueCol
+      .where("user_id", "==", req.user.id)
+      .orderBy("created_at", "desc")
+      .limit(50)
+      .get();
+    
+    const entries = snapshot.docs.map(doc => doc.data());
+    res.json({ entries });
+  } catch (err) {
+    console.error("Queue history error:", err.message);
+    res.status(500).json({ error: "Failed to fetch queue history: " + err.message });
+  }
+});
+
 // Admin actions
 router.post("/:id/call", requireAuth, requireRole(["admin", "staff"]), async (req, res) => {
   try {

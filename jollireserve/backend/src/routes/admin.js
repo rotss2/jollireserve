@@ -7,6 +7,28 @@ const { toDayISO, isoNow } = require("../utils/time");
 
 const router = express.Router();
 
+// ── Public: Get Active Announcement ───────────────────────
+router.get("/announcements/active", async (req, res) => {
+  try {
+    const db = getDb();
+    // Get the most recent announcement (assuming recent = active)
+    const snapshot = await db.collection("announcements")
+      .orderBy("created_at", "desc")
+      .limit(1)
+      .get();
+    
+    if (snapshot.empty) {
+      return res.json({ announcement: null });
+    }
+    
+    const announcement = snapshot.docs[0].data();
+    res.json({ announcement });
+  } catch (e) {
+    console.error("Get active announcement error:", e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // Apply auth middleware - admin only for user management
 router.use(requireAuth, requireRole(["admin"]));
 

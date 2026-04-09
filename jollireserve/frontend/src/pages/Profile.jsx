@@ -89,13 +89,12 @@ export default function Profile({ user }) {
       const [activityData, reservationsData, queueData] = await Promise.all([
         api.getActivity?.().catch(() => ({ activity: [] })),
         api.myReservations?.().catch(() => ({ reservations: [] })),
-        api.queueActive?.().catch(() => ({ entries: [] }))
+        api.queueHistory?.().catch(() => ({ entries: [] }))
       ]);
       setActivity(activityData?.activity || []);
       setReservations(reservationsData?.reservations || []);
-      // Filter queue entries for current user
-      const userQueue = (queueData?.entries || []).filter(q => q.user_id === user?.id || q.email === user?.email);
-      setQueueHistory(userQueue);
+      // Queue history now comes from dedicated endpoint (includes seated, cancelled)
+      setQueueHistory(queueData?.entries || []);
     } catch (e) {
       console.error("Failed to load profile data:", e);
     } finally {
@@ -142,9 +141,16 @@ export default function Profile({ user }) {
 
   async function saveProfile() {
     try {
-      await api.updateProfile?.(profile);
+      // Only send allowed fields (match backend expectations)
+      const payload = {
+        name: profile.name,
+        phone: profile.phone,
+        preferences: profile.preferences
+      };
+      await api.updateProfile?.(payload);
       ok("Profile updated successfully!");
       setEditMode(false);
+      // Note: Parent component should refresh user data via callback or context
     } catch (e) {
       err(e);
     }

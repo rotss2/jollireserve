@@ -96,6 +96,10 @@ export const api = {
     const res = await instance.get("/queue/active");
     return res.data;
   },
+  async queueHistory() {
+    const res = await instance.get("/queue/history");
+    return res.data;
+  },
   async queueJoin(payload) {
     const res = await instance.post("/queue/join", payload);
     return res.data;

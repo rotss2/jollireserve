@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { onWSMessage } from "../lib/ws";
+import * as api from "../lib/api";
 
 const typeColors = {
   info: { bg: "#3b82f6", border: "#2563eb" },
@@ -41,8 +42,12 @@ export default function AnnouncementBanner() {
 
   const checkRecentAnnouncements = async () => {
     try {
-      // This could fetch recent announcements from the API
-      // For now, we'll just rely on WebSocket for real-time
+      // Fetch the most recent active announcement from the API
+      const res = await api.getActiveAnnouncement?.() || await fetch("/api/announcements/active").then(r => r.ok ? r.json() : null);
+      if (res?.announcement) {
+        setAnnouncement(res.announcement);
+        setVisible(true);
+      }
     } catch (e) {
       console.error("Failed to check recent announcements:", e);
     }
@@ -61,28 +66,55 @@ export default function AnnouncementBanner() {
       style={{
         position: "fixed",
         top: 70,
-        left: "50%",
-        transform: "translateX(-50%)",
+        left: 0,
+        right: 0,
         zIndex: 1000,
-        maxWidth: "600px",
-        width: "90%",
         background: colors.bg,
-        border: `2px solid ${colors.border}`,
-        borderRadius: "0.75rem",
-        padding: "1rem 1.25rem",
+        borderBottom: `2px solid ${colors.border}`,
         boxShadow: "0 4px 20px rgba(0,0,0,0.3)",
-        animation: "slideDown 0.3s ease-out"
+        animation: "slideDown 0.3s ease-out",
+        overflow: "hidden"
       }}
     >
-      <div style={{ display: "flex", alignItems: "flex-start", gap: "0.75rem" }}>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontWeight: 700, color: "#fff", fontSize: "1rem", marginBottom: "0.25rem" }}>
-            {announcement.title}
-          </div>
-          <div style={{ color: "rgba(255,255,255,0.9)", fontSize: "0.875rem" }}>
-            {announcement.message}
+      <div style={{ 
+        display: "flex", 
+        alignItems: "center", 
+        padding: "0.75rem 1rem",
+        position: "relative"
+      }}>
+        {/* Title - Fixed */}
+        <div style={{ 
+          fontWeight: 700, 
+          color: "#fff", 
+          fontSize: "0.875rem",
+          whiteSpace: "nowrap",
+          marginRight: "1rem",
+          flexShrink: 0
+        }}>
+          📢 {announcement.title}
+        </div>
+        
+        {/* Message - Scrolling Marquee */}
+        <div style={{ 
+          flex: 1, 
+          overflow: "hidden",
+          position: "relative",
+          maskImage: "linear-gradient(to right, transparent, black 10%, black 90%, transparent)"
+        }}>
+          <div 
+            style={{ 
+              color: "rgba(255,255,255,0.95)", 
+              fontSize: "0.875rem",
+              whiteSpace: "nowrap",
+              animation: "marquee 15s linear infinite",
+              display: "inline-block"
+            }}
+          >
+            {announcement.message} &nbsp;&nbsp;&nbsp; {announcement.message}
           </div>
         </div>
+        
+        {/* Close Button */}
         <button
           onClick={closeAnnouncement}
           style={{
@@ -92,9 +124,10 @@ export default function AnnouncementBanner() {
             padding: "0.35rem 0.6rem",
             cursor: "pointer",
             color: "#fff",
-            fontSize: "1rem",
-            lineHeight: 1,
-            transition: "background 0.2s"
+            fontWeight: 600,
+            fontSize: "0.875rem",
+            marginLeft: "1rem",
+            flexShrink: 0
           }}
           onMouseEnter={e => e.target.style.background = "rgba(255,255,255,0.3)"}
           onMouseLeave={e => e.target.style.background = "rgba(255,255,255,0.2)"}
@@ -102,7 +135,8 @@ export default function AnnouncementBanner() {
           ✕
         </button>
       </div>
-
+      
+      {/* Add marquee animation */}
       {/* Progress bar */}
       <div
         style={{
