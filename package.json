@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "@libsql/client": "^0.17.0",
+    "qrcode": "^1.5.4"
+  }
+}

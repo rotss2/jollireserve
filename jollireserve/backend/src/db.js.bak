@@ -1,0 +1,146 @@
+const { createClient } = require("@libsql/client");
+
+let client;
+
+function connect() {
+  if (client) return client;
+
+  const url = process.env.TURSO_DATABASE_URL;
+  const authToken = process.env.TURSO_AUTH_TOKEN;
+
+  if (!url || !authToken) {
+    throw new Error("Missing TURSO_DATABASE_URL or TURSO_AUTH_TOKEN environment variables");
+  }
+
+  client = createClient({ url, authToken });
+  return client;
+}
+
+const dbWrapper = {
+  prepare: (sql) => ({
+    get: async (...args) => {
+      const c = connect();
+      const res = await c.execute({ sql, args });
+      return res.rows[0] ?? null;
+    },
+    all: async (...args) => {
+      const c = connect();
+      const res = await c.execute({ sql, args });
+      return res.rows;
+    },
+    run: async (...args) => {
+      const c = connect();
+      const res = await c.execute({ sql, args });
+      return { lastInsertRowid: res.lastInsertRowid, changes: res.rowsAffected };
+    },
+  }),
+
+  exec: async (sql) => {
+    const c = connect();
+    const statements = sql
+      .split(";")
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+    for (const stmt of statements) {
+      await c.execute(stmt);
+    }
+  },
+
+  // Run multiple statements atomically
+  transaction: async (fn) => {
+    const c = connect();
+    const tx = await c.transaction("write");
+    try {
+      const result = await fn(tx);
+      await tx.commit();
+      return result;
+    } catch (err) {
+      await tx.rollback();
+      throw err;
+    }
+  },
+};
+
+async function initDb() {
+  const d = dbWrapper;
+
+  await d.exec(`
+    CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY,
+      email TEXT UNIQUE NOT NULL,
+      password_hash TEXT NOT NULL,
+      name TEXT,
+      role TEXT NOT NULL DEFAULT 'customer',
+      is_verified INTEGER NOT NULL DEFAULT 0,
+      verification_code_hash TEXT,
+      verification_code_expires_at TEXT,
+      created_at TEXT NOT NULL
+    )
+  `);
+
+  await d.exec(`
+    CREATE TABLE IF NOT EXISTS tables (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      area TEXT NOT NULL DEFAULT 'indoor',
+      capacity INTEGER NOT NULL,
+      is_active INTEGER NOT NULL DEFAULT 1
+    )
+  `);
+
+  await d.exec(`
+    CREATE TABLE IF NOT EXISTS reservations (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      date TEXT NOT NULL,
+      time TEXT NOT NULL,
+      party_size INTEGER NOT NULL,
+      area_pref TEXT,
+      special_requests TEXT,
+      table_id TEXT,
+      status TEXT NOT NULL DEFAULT 'confirmed',
+      created_at TEXT NOT NULL,
+      FOREIGN KEY(user_id) REFERENCES users(id),
+      FOREIGN KEY(table_id) REFERENCES tables(id)
+    )
+  `);
+
+  await d.exec(`
+    CREATE TABLE IF NOT EXISTS queue_entries (
+      id TEXT PRIMARY KEY,
+      user_id TEXT,
+      name TEXT,
+      party_size INTEGER NOT NULL,
+      status TEXT NOT NULL DEFAULT 'waiting',
+      created_at TEXT NOT NULL,
+      called_at TEXT,
+      seated_at TEXT,
+      FOREIGN KEY(user_id) REFERENCES users(id)
+    )
+  `);
+
+  // Safe migrations — ignore errors if columns already exist
+  const migrations = [
+    "ALTER TABLE users ADD COLUMN is_verified INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE users ADD COLUMN verification_code_hash TEXT",
+    "ALTER TABLE users ADD COLUMN verification_code_expires_at TEXT",
+  ];
+  for (const m of migrations) {
+    try { await d.exec(m); } catch (_) { /* already exists */ }
+  }
+
+  // Indexes
+  await d.exec(`
+    CREATE INDEX IF NOT EXISTS idx_reservations_user ON reservations(user_id);
+    CREATE INDEX IF NOT EXISTS idx_reservations_date_time ON reservations(date, time);
+    CREATE INDEX IF NOT EXISTS idx_queue_status ON queue_entries(status)
+  `);
+
+  console.log("✅ Database initialized (Turso)");
+}
+
+function dbConn() {
+  return dbWrapper;
+}
+
+module.exports = { initDb, dbConn };
