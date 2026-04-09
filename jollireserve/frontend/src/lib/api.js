@@ -151,7 +151,7 @@ export const api = {
     return res.data;
   },
   async adminCheckinReservation(id) {
-    const res = await instance.post(`/admin/reservations/${id}/checkin`);
+    const res = await instance.post(`/reservations/${id}/checkin`);
     return res.data;
   },
   async adminCompleteReservation(id) {
