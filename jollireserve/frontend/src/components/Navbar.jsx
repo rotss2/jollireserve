@@ -1,3 +1,4 @@
+// Admin nav fix - hides customer links from admin
 import React, { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useTheme } from "../context/ThemeContext";
