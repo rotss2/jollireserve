@@ -34,9 +34,12 @@ function initFirebase() {
       throw e;
     }
   } else if (process.env.FIREBASE_SERVICE_ACCOUNT) {
-    // Fallback to inline JSON
+    // Fallback to inline JSON - handle newlines properly
     try {
-      const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+      let jsonStr = process.env.FIREBASE_SERVICE_ACCOUNT;
+      // Replace literal \n with actual newlines for private key
+      jsonStr = jsonStr.replace(/\\n/g, '\n');
+      const serviceAccount = JSON.parse(jsonStr);
       app = initializeApp({
         credential: cert(serviceAccount),
         projectId: serviceAccount.project_id
