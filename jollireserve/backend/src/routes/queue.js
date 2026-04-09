@@ -48,6 +48,8 @@ router.post("/join", async (req, res) => {
   try {
     const { party_size, name, user_id, email } = req.body || {};
     console.log("[Queue Join] Received:", { party_size, user_id, email, name });
+    console.log("[Queue Join] Auth header:", req.headers.authorization ? "Present" : "Missing");
+    console.log("[Queue Join] req.user:", req.user);
     
     if (!party_size) return res.status(400).json({ error: "party_size required" });
 
@@ -78,7 +80,7 @@ router.post("/join", async (req, res) => {
       seated_at: null
     };
     
-    console.log("[Queue Join] Saving entry:", entryData);
+    console.log("[Queue Join] Final user_id being saved:", entryData.user_id);
     await queueCol.doc(id).set(entryData);
     console.log("[Queue Join] Saved successfully with id:", id);
 
@@ -151,6 +153,9 @@ router.get("/active", async (req, res) => {
 // Get user's queue history (all statuses)
 router.get("/history", requireAuth, async (req, res) => {
   try {
+    console.log("[Queue History] User from token:", req.user);
+    console.log("[Queue History] Querying for user_id:", req.user?.id);
+    
     const db = getDb();
     const queueCol = db.collection("queue_entries");
     
@@ -164,7 +169,13 @@ router.get("/history", requireAuth, async (req, res) => {
       .get();
     
     const entries = snapshot.docs.map(doc => doc.data());
-    console.log("[Queue History] Found", entries.length, "entries for user", req.user?.id);
+    console.log("[Queue History] Found", entries.length, "entries for user_id:", req.user?.id);
+    
+    // Debug: show first entry user_id if exists
+    if (entries.length > 0) {
+      console.log("[Queue History] First entry user_id:", entries[0].user_id);
+    }
+    
     res.json({ entries });
   } catch (err) {
     console.error("[Queue History] Error:", err.message);
