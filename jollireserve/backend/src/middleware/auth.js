@@ -1,5 +1,5 @@
 const jwt = require("jsonwebtoken");
-const { dbConn } = require("../db");
+const { getDb } = require("../firebase");
 
 function requireAuth(req, res, next) {
   const header = req.headers.authorization || "";
@@ -23,13 +23,18 @@ function requireRole(roles = []) {
   };
 }
 
-function attachUser(req, res, next) {
+async function attachUser(req, res, next) {
   // Optional middleware to attach full user from DB if needed
   if (!req.user) return next();
-  const db = dbConn();
-  const u = db.prepare("SELECT id, email, name, role, created_at FROM users WHERE id=?").get(req.user.id);
-  req.fullUser = u || null;
-  return next();
+  try {
+    const db = getDb();
+    const userDoc = await db.collection("users").doc(req.user.id).get();
+    req.fullUser = userDoc.exists ? userDoc.data() : null;
+    return next();
+  } catch (e) {
+    console.error("Attach user error:", e.message);
+    return next();
+  }
 }
 
 module.exports = { requireAuth, requireRole, attachUser };

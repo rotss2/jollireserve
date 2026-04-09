@@ -178,20 +178,37 @@ router.post("/:id/cancel", requireAuth, async (req, res) => {
 
 router.get("/:id/receipt.pdf", requireAuth, async (req, res, next) => {
   try {
-    const db = dbConn();
-    const r = await db.prepare(`
-      SELECT r.*, t.name AS table_name, t.area AS table_area, t.capacity AS table_capacity, u.email AS user_email, u.name AS user_name
-      FROM reservations r
-      LEFT JOIN tables t ON t.id = r.table_id
-      LEFT JOIN users u ON u.id = r.user_id
-      WHERE r.id=?
-    `).get(req.params.id);
-
-    if (!r) return res.status(404).json({ error: "Not found" });
+    const db = getDb();
+    
+    // Get reservation
+    const reservationDoc = await db.collection("reservations").doc(req.params.id).get();
+    if (!reservationDoc.exists) return res.status(404).json({ error: "Not found" });
+    const reservation = reservationDoc.data();
+    
     // Only owner or admin/staff can download
-    const isOwner = r.user_id === req.user.id;
+    const isOwner = reservation.user_id === req.user.id;
     const isAdmin = ["admin", "staff"].includes(req.user.role);
     if (!isOwner && !isAdmin) return res.status(403).json({ error: "Forbidden" });
+    
+    // Get table info if available
+    let tableData = null;
+    if (reservation.table_id) {
+      const tableDoc = await db.collection("tables").doc(reservation.table_id).get();
+      if (tableDoc.exists) tableData = tableDoc.data();
+    }
+    
+    // Get user info
+    const userDoc = await db.collection("users").doc(reservation.user_id).get();
+    const userData = userDoc.exists ? userDoc.data() : { email: "", name: "" };
+    
+    const r = {
+      ...reservation,
+      table_name: tableData?.name || null,
+      table_area: tableData?.area || null,
+      table_capacity: tableData?.capacity || null,
+      user_email: userData.email,
+      user_name: userData.name
+    };
 
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", `attachment; filename="reservation-${r.id}.pdf"`);
@@ -204,27 +221,78 @@ router.get("/:id/receipt.pdf", requireAuth, async (req, res, next) => {
 
 // Admin list all reservations
 router.get("/", requireAuth, requireRole(["admin", "staff"]), async (req, res) => {
-  const db = dbConn();
-  const rows = await db.prepare(`
-    SELECT r.*, u.email AS user_email, u.name AS user_name, t.name AS table_name, t.area AS table_area, t.capacity AS table_capacity
-    FROM reservations r
-    LEFT JOIN users u ON u.id = r.user_id
-    LEFT JOIN tables t ON t.id = r.table_id
-    ORDER BY r.created_at DESC
-    LIMIT 200
-  `).all();
-  res.json({ reservations: rows });
+  try {
+    const db = getDb();
+    const snapshot = await db.collection("reservations")
+      .orderBy("created_at", "desc")
+      .limit(200)
+      .get();
+    
+    const reservations = await Promise.all(snapshot.docs.map(async (doc) => {
+      const data = doc.data();
+      
+      // Get user info
+      let userData = { email: "", name: "" };
+      if (data.user_id) {
+        const userDoc = await db.collection("users").doc(data.user_id).get();
+        if (userDoc.exists) userData = userDoc.data();
+      }
+      
+      // Get table info
+      let tableData = null;
+      if (data.table_id) {
+        const tableDoc = await db.collection("tables").doc(data.table_id).get();
+        if (tableDoc.exists) tableData = tableDoc.data();
+      }
+      
+      return {
+        ...data,
+        user_email: userData.email,
+        user_name: userData.name,
+        table_name: tableData?.name || null,
+        table_area: tableData?.area || null,
+        table_capacity: tableData?.capacity || null
+      };
+    }));
+    
+    res.json({ reservations });
+  } catch (e) {
+    console.error("Admin reservations error:", e.message);
+    res.status(500).json({ error: e.message });
+  }
 });
 
 router.post("/:id/checkin", requireAuth, requireRole(["admin", "staff"]), async (req, res) => {
-  const db = dbConn();
-  const r = await db.prepare("SELECT * FROM reservations WHERE id=?").get(req.params.id);
-  if (!r) return res.status(404).json({ error: "Not found" });
-  await db.prepare("UPDATE reservations SET status='checked_in' WHERE id=?").run(req.params.id);
-  const updated = await db.prepare("SELECT * FROM reservations WHERE id=?").get(req.params.id);
-  broadcast({ type: 'reservations:changed', reservation: { id: updated.id, status: updated.status } });
-  broadcast({ type: 'notify', level: 'info', message: 'Reservation updated.' });
-  res.json({ reservation: updated });
+  try {
+    const db = getDb();
+    
+    // Get reservation
+    const reservationDoc = await db.collection("reservations").doc(req.params.id).get();
+    if (!reservationDoc.exists) return res.status(404).json({ error: "Not found" });
+    
+    // Update status
+    await db.collection("reservations").doc(req.params.id).update({
+      status: "checked_in",
+      updated_at: isoNow()
+    });
+    
+    // Get updated data
+    const updatedDoc = await db.collection("reservations").doc(req.params.id).get();
+    const updated = updatedDoc.data();
+    
+    // Log activity
+    await logActivity(req.user.id, "reservation_checkin", {
+      reservation_id: req.params.id,
+      user_id: updated.user_id
+    });
+    
+    broadcast({ type: 'reservations:changed', reservation: { id: updated.id, status: updated.status } });
+    broadcast({ type: 'notify', level: 'info', message: 'Reservation checked in.' });
+    res.json({ reservation: updated });
+  } catch (e) {
+    console.error("Checkin error:", e.message);
+    res.status(500).json({ error: e.message });
+  }
 });
 
 module.exports = router;
