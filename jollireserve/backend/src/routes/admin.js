@@ -29,6 +29,32 @@ router.get("/announcements/active", async (req, res) => {
   }
 });
 
+// ── Public: Get System Settings ─────────────────────────
+router.get("/settings", async (req, res) => {
+  try {
+    const db = getDb();
+    const settingsDoc = await db.collection("settings").doc("system").get();
+    
+    // Default settings
+    const defaults = {
+      max_party_size: 12,
+      max_advance_days: 30,
+      restaurant_name: "JolliReserve",
+      contact_email: "",
+      contact_phone: ""
+    };
+    
+    if (settingsDoc.exists) {
+      res.json({ settings: { ...defaults, ...settingsDoc.data() } });
+    } else {
+      res.json({ settings: defaults });
+    }
+  } catch (e) {
+    console.error("Get settings error:", e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // Apply auth middleware - admin only for user management
 router.use(requireAuth, requireRole(["admin"]));
 
@@ -412,6 +438,60 @@ router.get("/activity", async (req, res) => {
     res.json({ activity });
   } catch (e) {
     console.error("Get activity error:", e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── Settings Management ─────────────────────────────────
+
+// Get settings (admin)
+router.get("/settings/admin", async (req, res) => {
+  try {
+    const db = getDb();
+    const settingsDoc = await db.collection("settings").doc("system").get();
+    
+    const defaults = {
+      max_party_size: 12,
+      max_advance_days: 30,
+      restaurant_name: "JolliReserve",
+      contact_email: "",
+      contact_phone: ""
+    };
+    
+    res.json({ settings: settingsDoc.exists ? { ...defaults, ...settingsDoc.data() } : defaults });
+  } catch (e) {
+    console.error("Get settings error:", e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Update settings (admin)
+router.post("/settings", async (req, res) => {
+  try {
+    const db = getDb();
+    const { max_party_size, max_advance_days, restaurant_name, contact_email, contact_phone } = req.body || {};
+    
+    const updateData = {};
+    if (max_party_size !== undefined) updateData.max_party_size = Number(max_party_size);
+    if (max_advance_days !== undefined) updateData.max_advance_days = Number(max_advance_days);
+    if (restaurant_name !== undefined) updateData.restaurant_name = restaurant_name;
+    if (contact_email !== undefined) updateData.contact_email = contact_email;
+    if (contact_phone !== undefined) updateData.contact_phone = contact_phone;
+    updateData.updated_at = isoNow();
+    updateData.updated_by = req.user.id;
+    
+    await db.collection("settings").doc("system").set(updateData, { merge: true });
+    
+    // Broadcast settings change to all clients
+    const { broadcast } = require("../ws");
+    broadcast({
+      type: "settings:changed",
+      settings: updateData
+    });
+    
+    res.json({ ok: true, settings: updateData });
+  } catch (e) {
+    console.error("Update settings error:", e.message);
     res.status(500).json({ error: e.message });
   }
 });

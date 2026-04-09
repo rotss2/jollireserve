@@ -12,6 +12,18 @@ const QRCode = require('qrcode');
 
 const router = express.Router();
 
+// Helper to get system settings
+async function getSettings() {
+  try {
+    const db = getDb();
+    const settingsDoc = await db.collection("settings").doc("system").get();
+    const defaults = { max_party_size: 12, max_advance_days: 30 };
+    return settingsDoc.exists ? { ...defaults, ...settingsDoc.data() } : defaults;
+  } catch (e) {
+    return { max_party_size: 12, max_advance_days: 30 };
+  }
+}
+
 // Activity logging helper
 async function logActivity(userId, action, details = {}) {
   try {
@@ -69,6 +81,16 @@ router.post("/", requireAuth, async (req, res, next) => {
   try {
     const { date, time, party_size, area_pref, special_requests } = req.body || {};
     if (!date || !time || !party_size) return res.status(400).json({ error: "date, time, party_size required" });
+
+    // Check max party size
+    const settings = await getSettings();
+    const maxPartySize = settings.max_party_size || 12;
+    if (Number(party_size) > maxPartySize) {
+      return res.status(400).json({ 
+        error: `Maximum party size is ${maxPartySize} people.`,
+        max_party_size: maxPartySize
+      });
+    }
 
     const db = getDb();
     const id = uuid();

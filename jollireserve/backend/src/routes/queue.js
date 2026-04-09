@@ -9,6 +9,18 @@ const { broadcast } = require('../ws');
 
 const router = express.Router();
 
+// Helper to get system settings
+async function getSettings() {
+  try {
+    const db = getDb();
+    const settingsDoc = await db.collection("settings").doc("system").get();
+    const defaults = { max_party_size: 12 };
+    return settingsDoc.exists ? { ...defaults, ...settingsDoc.data() } : defaults;
+  } catch (e) {
+    return { max_party_size: 12 };
+  }
+}
+
 // Activity logging helper
 async function logActivity(userId, action, details = {}) {
   try {
@@ -38,6 +50,16 @@ router.post("/join", async (req, res) => {
     console.log("[Queue Join] Received:", { party_size, user_id, email, name });
     
     if (!party_size) return res.status(400).json({ error: "party_size required" });
+
+    // Check max party size
+    const settings = await getSettings();
+    const maxPartySize = settings.max_party_size || 12;
+    if (Number(party_size) > maxPartySize) {
+      return res.status(400).json({ 
+        error: `Maximum party size is ${maxPartySize} people.`,
+        max_party_size: maxPartySize
+      });
+    }
 
     const db = getDb();
     const queueCol = db.collection("queue_entries");

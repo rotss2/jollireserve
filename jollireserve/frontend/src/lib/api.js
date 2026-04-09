@@ -229,6 +229,20 @@ export const api = {
     return res.data;
   },
 
+  // ── Settings ─────────────────────────────────────────
+  async getSettings() {
+    const res = await instance.get("/admin/settings");
+    return res.data;
+  },
+  async adminGetSettings() {
+    const res = await instance.get("/admin/settings/admin");
+    return res.data;
+  },
+  async adminUpdateSettings(settings) {
+    const res = await instance.post("/admin/settings", settings);
+    return res.data;
+  },
+
   // ── Raw passthrough ───────────────────────────────────
   get: (url, config) => instance.get(url, config),
   post: (url, data, config) => instance.post(url, data, config),
