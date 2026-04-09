@@ -164,7 +164,7 @@ router.get("/history", requireAuth, async (req, res) => {
     // Get all entries for this user (including seated, cancelled, etc.)
     const snapshot = await queueCol
       .where("user_id", "==", req.user.id)
-      .orderBy("created_at", "desc")
+      .orderBy("joined_at", "desc")
       .limit(50)
       .get();
     
