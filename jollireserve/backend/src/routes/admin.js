@@ -362,8 +362,9 @@ router.post("/announcements", async (req, res) => {
 
     res.json({ ok: true, id, announcement: announcementData });
   } catch (e) {
-    console.error("Create announcement error:", e.message);
-    res.status(500).json({ error: e.message });
+    console.error("[Admin API] Create announcement error:", e.message);
+    console.error("[Admin API] Stack trace:", e.stack);
+    res.status(500).json({ error: "Server error: " + e.message });
   }
 });
 
