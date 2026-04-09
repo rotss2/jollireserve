@@ -9,6 +9,29 @@ const { sendMail } = require("../utils/email");
 const { generateCode, hashCode, expiresAt, isExpired } = require("../utils/verify");
 const { requireAuth } = require("../middleware/auth");
 
+// Activity logging helper
+async function logActivity(userId, action, details = {}) {
+  try {
+    const db = getDb();
+    await db.collection("activity_logs").add({
+      id: uuid(),
+      user_id: userId,
+      action,
+      details,
+      created_at: isoNow()
+    });
+    
+    // Broadcast to admin via WebSocket
+    const { broadcast } = require("../websocket");
+    broadcast({
+      type: "activity",
+      activity: { user_id: userId, action, details, created_at: isoNow() }
+    });
+  } catch (e) {
+    console.error("Activity log error:", e.message);
+  }
+}
+
 const router = express.Router();
 
 function signToken(user) {
@@ -94,6 +117,10 @@ router.post("/login", async (req, res) => {
 
     const safe = { id: user.id, email: user.email, name: user.name, role: user.role, is_verified: user.is_verified, created_at: user.created_at };
     const token = signToken(safe);
+    
+    // Log login activity
+    await logActivity(user.id, "user_login", { email: user.email, role: user.role });
+    
     res.json({ token, user: safe });
 
   } catch (err) {
@@ -119,6 +146,33 @@ router.get("/me", requireAuth, async (req, res) => {
       created_at: user.created_at 
     };
     res.json({ user: safe });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── Logout ─────────────────────────────────────────────────
+router.post("/logout", requireAuth, async (req, res) => {
+  try {
+    await logActivity(req.user.id, "user_logout", { email: req.user.email });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── User Activity History ─────────────────────────────────
+router.get("/activity", requireAuth, async (req, res) => {
+  try {
+    const db = getDb();
+    const snapshot = await db.collection("activity_logs")
+      .where("user_id", "==", req.user.id)
+      .orderBy("created_at", "desc")
+      .limit(50)
+      .get();
+    
+    const activity = snapshot.docs.map(doc => doc.data());
+    res.json({ activity });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
