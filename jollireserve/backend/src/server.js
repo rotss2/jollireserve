@@ -9,6 +9,7 @@ const reservationRoutes = require("./routes/reservations");
 const queueRoutes = require("./routes/queue");
 const tableRoutes = require("./routes/tables");
 const adminRoutes = require("./routes/admin");
+const menuRoutes = require("./routes/menu");
 const staffRoutes = require("./routes/staff");
 const http = require("http");
 const { initWebSocket } = require("./ws");
@@ -58,6 +59,7 @@ app.use("/api/queue", queueRoutes);
 app.use("/api/tables", tableRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/staff", staffRoutes);
+app.use("/api/menu", menuRoutes);
 
 // Error handler
 app.use((err, req, res, next) => {

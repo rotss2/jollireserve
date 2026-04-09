@@ -11,7 +11,7 @@ function toISO(d) {
   return `${dd.getFullYear()}-${String(dd.getMonth() + 1).padStart(2, "0")}-${String(dd.getDate()).padStart(2, "0")}`;
 }
 
-const TABS = ["Dashboard", "Tables", "Users", "Activity", "Announcements", "Settings"];
+const TABS = ["Dashboard", "Tables", "Users", "Activity", "Announcements", "Settings", "Menu"];
 
 export default function Admin({ user }) {
   const [tab, setTab] = useState("Dashboard");
@@ -38,6 +38,10 @@ export default function Admin({ user }) {
   const [adminActivity, setAdminActivity] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
   const [newAnnouncement, setNewAnnouncement] = useState({ title: "", message: "", type: "info", duration: 30 });
+  
+  // Menu management state
+  const [menuItems, setMenuItems] = useState([]);
+  const [newMenuItem, setNewMenuItem] = useState({ name: "", description: "", price: "", category: "Mains", image_url: "" });
 
   const ok = (msg) => setToast({ message: msg, type: "success" });
   const err = (e) => setToast({ message: e?.response?.data?.error || e.message || "Error", type: "error" });
@@ -123,6 +127,13 @@ export default function Admin({ user }) {
     return () => off();
   }, []);
 
+  // Load menu items when Menu tab is selected
+  useEffect(() => {
+    if (tab === "Menu") {
+      loadMenuItems();
+    }
+  }, [tab]);
+
   async function createTable() {
     const name = prompt("Table name (e.g. T8)"); if (!name) return;
     const area = prompt("Area: indoor/outdoor/vip", "indoor") || "indoor";
@@ -162,6 +173,15 @@ export default function Admin({ user }) {
   async function viewHistory(u) {
     setSelectedUser(u);
     try { const h = await api.adminUserHistory(u.id); setUserHistory(h); } catch (e) { err(e); }
+  }
+
+  async function loadMenuItems() {
+    try {
+      const data = await api.adminGetMenuItems();
+      setMenuItems(data.items || []);
+    } catch (e) {
+      console.error("Load menu items error:", e);
+    }
   }
 
   async function loadAnnouncements() {
@@ -676,6 +696,165 @@ export default function Admin({ user }) {
 
           <div className="mt-4 text-xs" style={{ color: "var(--text-muted)" }}>
             Settings are saved to the database and broadcast to all users in real-time.
+          </div>
+        </div>
+      )}
+
+      {/* ── Menu Tab ───────────────────────────────────────── */}
+      {tab === "Menu" && (
+        <div className="mt-4">
+          <h2 className="text-lg font-semibold mb-4">🍽️ Menu Management (Phase 2)</h2>
+          
+          {/* Add Menu Item Form */}
+          <div className="card mb-4" style={{ padding: "1rem" }}>
+            <h3 className="text-md font-medium mb-3">Add New Menu Item</h3>
+            <div style={{ display: "grid", gap: "0.75rem", maxWidth: "500px" }}>
+              <input
+                type="text"
+                placeholder="Item name (e.g., Chicken Joy)"
+                value={newMenuItem.name}
+                onChange={e => setNewMenuItem(prev => ({ ...prev, name: e.target.value }))}
+                className="input"
+              />
+              <input
+                type="text"
+                placeholder="Description"
+                value={newMenuItem.description}
+                onChange={e => setNewMenuItem(prev => ({ ...prev, description: e.target.value }))}
+                className="input"
+              />
+              <div style={{ display: "flex", gap: "0.5rem" }}>
+                <input
+                  type="number"
+                  placeholder="Price (₱)"
+                  value={newMenuItem.price}
+                  onChange={e => setNewMenuItem(prev => ({ ...prev, price: e.target.value }))}
+                  className="input"
+                  style={{ flex: 1 }}
+                />
+                <select
+                  value={newMenuItem.category}
+                  onChange={e => setNewMenuItem(prev => ({ ...prev, category: e.target.value }))}
+                  className="input"
+                  style={{ flex: 1 }}
+                >
+                  <option value="Appetizers">Appetizers</option>
+                  <option value="Mains">Mains</option>
+                  <option value="Desserts">Desserts</option>
+                  <option value="Drinks">Drinks</option>
+                </select>
+              </div>
+              <input
+                type="text"
+                placeholder="Image URL (optional)"
+                value={newMenuItem.image_url}
+                onChange={e => setNewMenuItem(prev => ({ ...prev, image_url: e.target.value }))}
+                className="input"
+              />
+              <button 
+                className="btn btn-red"
+                onClick={async () => {
+                  try {
+                    await api.adminCreateMenuItem(newMenuItem);
+                    ok("Menu item added!");
+                    setNewMenuItem({ name: "", description: "", price: "", category: "Mains", image_url: "" });
+                    // Reload menu items
+                    const data = await api.adminGetMenuItems();
+                    setMenuItems(data.items || []);
+                  } catch (e) {
+                    err(e);
+                  }
+                }}
+                disabled={!newMenuItem.name || !newMenuItem.price}
+              >
+                ➕ Add Item
+              </button>
+            </div>
+          </div>
+
+          {/* Menu Items List */}
+          <div className="card" style={{ padding: "1rem" }}>
+            <h3 className="text-md font-medium mb-3">Current Menu</h3>
+            {menuItems.length === 0 ? (
+              <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+                No menu items yet. Add some above!
+              </p>
+            ) : (
+              <div style={{ display: "grid", gap: "0.5rem" }}>
+                {menuItems.map(item => (
+                  <div 
+                    key={item.id} 
+                    className="flex justify-between items-center p-3 rounded"
+                    style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}
+                  >
+                    <div className="flex items-center gap-3">
+                      {item.image_url && (
+                        <img 
+                          src={item.image_url} 
+                          alt={item.name}
+                          style={{ width: 50, height: 50, objectFit: "cover", borderRadius: 4 }}
+                        />
+                      )}
+                      <div>
+                        <p className="font-medium">{item.name}</p>
+                        <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                          {item.category} • ₱{item.price}
+                        </p>
+                        {item.description && (
+                          <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                            {item.description}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        className="btn btn-sm"
+                        onClick={async () => {
+                          try {
+                            await api.adminUpdateMenuItem(item.id, { 
+                              is_available: !item.is_available 
+                            });
+                            ok(item.is_available ? "Item disabled" : "Item enabled");
+                            const data = await api.adminGetMenuItems();
+                            setMenuItems(data.items || []);
+                          } catch (e) {
+                            err(e);
+                          }
+                        }}
+                      >
+                        {item.is_available ? "🟢" : "🔴"}
+                      </button>
+                      <button
+                        className="btn btn-sm btn-red"
+                        onClick={async () => {
+                          if (!confirm("Delete this item?")) return;
+                          try {
+                            await api.adminDeleteMenuItem(item.id);
+                            ok("Item deleted");
+                            const data = await api.adminGetMenuItems();
+                            setMenuItems(data.items || []);
+                          } catch (e) {
+                            err(e);
+                          }
+                        }}
+                      >
+                        🗑️
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Payment Info Box */}
+          <div className="card mt-4" style={{ padding: "1rem", background: "#1a1a2e" }}>
+            <h3 className="text-md font-medium mb-2">💳 Payment Integration (Coming Soon)</h3>
+            <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+              PayMongo integration for GCash, Maya, GrabPay, and credit cards. 
+              Customers can pre-order food during reservation to reduce no-shows and secure revenue.
+            </p>
           </div>
         </div>
       )}

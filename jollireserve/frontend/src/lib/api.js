@@ -243,6 +243,28 @@ export const api = {
     return res.data;
   },
 
+  // ── Menu (Food Ordering) ────────────────────────────────
+  async getMenuItems() {
+    const res = await instance.get("/menu/items");
+    return res.data;
+  },
+  async adminGetMenuItems() {
+    const res = await instance.get("/menu/admin/items");
+    return res.data;
+  },
+  async adminCreateMenuItem(payload) {
+    const res = await instance.post("/menu/admin/items", payload);
+    return res.data;
+  },
+  async adminUpdateMenuItem(id, payload) {
+    const res = await instance.patch(`/menu/admin/items/${id}`, payload);
+    return res.data;
+  },
+  async adminDeleteMenuItem(id) {
+    const res = await instance.delete(`/menu/admin/items/${id}`);
+    return res.data;
+  },
+
   // ── Raw passthrough ───────────────────────────────────
   get: (url, config) => instance.get(url, config),
   post: (url, data, config) => instance.post(url, data, config),

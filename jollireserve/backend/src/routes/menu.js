@@ -1,0 +1,121 @@
+const express = require("express");
+const { getDb } = require("../firebase");
+const { v4: uuid } = require("uuid");
+const { requireAuth, requireRole } = require("../middleware/auth");
+
+const router = express.Router();
+
+// Helper for ISO timestamp
+function isoNow() {
+  return new Date().toISOString();
+}
+
+// Get all menu items (public - for customers)
+router.get("/items", async (req, res) => {
+  try {
+    const db = getDb();
+    const snapshot = await db.collection("menu_items")
+      .where("is_available", "==", true)
+      .orderBy("category")
+      .orderBy("name")
+      .get();
+    
+    const items = snapshot.docs.map(doc => doc.data());
+    res.json({ items });
+  } catch (err) {
+    console.error("Menu items error:", err.message);
+    res.status(500).json({ error: "Failed to fetch menu items" });
+  }
+});
+
+// Admin: Get all menu items (including unavailable)
+router.get("/admin/items", requireAuth, requireRole(["admin", "staff"]), async (req, res) => {
+  try {
+    const db = getDb();
+    const snapshot = await db.collection("menu_items")
+      .orderBy("category")
+      .orderBy("name")
+      .get();
+    
+    const items = snapshot.docs.map(doc => doc.data());
+    res.json({ items });
+  } catch (err) {
+    console.error("Admin menu items error:", err.message);
+    res.status(500).json({ error: "Failed to fetch menu items" });
+  }
+});
+
+// Admin: Add menu item
+router.post("/admin/items", requireAuth, requireRole(["admin"]), async (req, res) => {
+  try {
+    const { name, description, price, category, image_url } = req.body;
+    
+    if (!name || !price || !category) {
+      return res.status(400).json({ error: "Name, price, and category are required" });
+    }
+
+    const db = getDb();
+    const id = uuid();
+    const itemData = {
+      id,
+      name,
+      description: description || "",
+      price: Number(price),
+      category,
+      image_url: image_url || "",
+      is_available: true,
+      created_at: isoNow(),
+      updated_at: isoNow()
+    };
+
+    await db.collection("menu_items").doc(id).set(itemData);
+    console.log("[Menu] Created item:", id, name);
+    
+    res.json({ item: itemData });
+  } catch (err) {
+    console.error("Create menu item error:", err.message);
+    res.status(500).json({ error: "Failed to create menu item" });
+  }
+});
+
+// Admin: Update menu item
+router.patch("/admin/items/:id", requireAuth, requireRole(["admin"]), async (req, res) => {
+  try {
+    const { name, description, price, category, image_url, is_available } = req.body;
+    const db = getDb();
+    
+    const updateData = {
+      updated_at: isoNow()
+    };
+    
+    if (name !== undefined) updateData.name = name;
+    if (description !== undefined) updateData.description = description;
+    if (price !== undefined) updateData.price = Number(price);
+    if (category !== undefined) updateData.category = category;
+    if (image_url !== undefined) updateData.image_url = image_url;
+    if (is_available !== undefined) updateData.is_available = is_available;
+
+    await db.collection("menu_items").doc(req.params.id).update(updateData);
+    console.log("[Menu] Updated item:", req.params.id);
+    
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("Update menu item error:", err.message);
+    res.status(500).json({ error: "Failed to update menu item" });
+  }
+});
+
+// Admin: Delete menu item
+router.delete("/admin/items/:id", requireAuth, requireRole(["admin"]), async (req, res) => {
+  try {
+    const db = getDb();
+    await db.collection("menu_items").doc(req.params.id).delete();
+    console.log("[Menu] Deleted item:", req.params.id);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("Delete menu item error:", err.message);
+    res.status(500).json({ error: "Failed to delete menu item" });
+  }
+});
+
+module.exports = router;
