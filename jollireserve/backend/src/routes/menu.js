@@ -14,11 +14,27 @@ function isoNow() {
 router.get("/items", async (req, res) => {
   try {
     const db = getDb();
-    const snapshot = await db.collection("menu_items")
-      .where("is_available", "==", true)
-      .orderBy("category")
-      .orderBy("name")
-      .get();
+    // Try with ordering first, fall back to simple query if index missing
+    let snapshot;
+    try {
+      snapshot = await db.collection("menu_items")
+        .where("is_available", "==", true)
+        .orderBy("category")
+        .orderBy("name")
+        .get();
+    } catch (indexErr) {
+      console.warn("[Menu] Index missing, using fallback query:", indexErr.message);
+      // Fallback: get all and filter/sort in memory
+      const allSnapshot = await db.collection("menu_items").get();
+      const items = allSnapshot.docs
+        .map(doc => doc.data())
+        .filter(item => item.is_available)
+        .sort((a, b) => {
+          if (a.category !== b.category) return a.category.localeCompare(b.category);
+          return a.name.localeCompare(b.name);
+        });
+      return res.json({ items });
+    }
     
     const items = snapshot.docs.map(doc => doc.data());
     res.json({ items });

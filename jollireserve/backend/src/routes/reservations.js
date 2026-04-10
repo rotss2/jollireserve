@@ -94,12 +94,23 @@ router.post("/", requireAuth, async (req, res, next) => {
 
     // Get available tables for this party size
     const db = getDb();
-    const tablesSnapshot = await db.collection("tables")
-      .where("is_active", "==", true)
-      .where("capacity", ">=", Number(party_size))
-      .get();
-    
-    const availableTables = tablesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    let availableTables = [];
+    try {
+      const tablesSnapshot = await db.collection("tables")
+        .where("is_active", "==", true)
+        .where("capacity", ">=", Number(party_size))
+        .get();
+      availableTables = tablesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    } catch (indexErr) {
+      console.warn("[Reservations] Tables index missing, using fallback:", indexErr.message);
+      // Fallback: get all active tables and filter in memory
+      const allTablesSnapshot = await db.collection("tables")
+        .where("is_active", "==", true)
+        .get();
+      availableTables = allTablesSnapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() }))
+        .filter(table => table.capacity >= Number(party_size));
+    }
     
     // Simple table assignment - pick first available
     const chosenTable = availableTables.length > 0 ? availableTables[0] : null;
