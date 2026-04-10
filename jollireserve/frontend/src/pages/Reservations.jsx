@@ -166,8 +166,24 @@ export default function Reservations({ user }) {
               <input className="input" type="time" value={time} onChange={(e) => setTime(e.target.value)} />
             </div>
             <div>
-              <label className="block text-xs font-semibold mb-1" style={{ color: "var(--text-muted)" }}>Guests</label>
-              <input className="input" type="number" min="1" value={party} onChange={(e) => setParty(e.target.value)} placeholder="Number of guests" />
+              <label className="block text-xs font-semibold mb-1" style={{ color: "var(--text-muted)" }}>
+                Guests (Max: {maxPartySize})
+              </label>
+              <input 
+                className="input" 
+                type="number" 
+                min="1" 
+                max={maxPartySize} 
+                value={party} 
+                onChange={(e) => setParty(e.target.value)} 
+                placeholder={`Number of guests (max ${maxPartySize})`}
+                style={partyError ? { border: "2px solid #ef4444" } : {}}
+              />
+              {partyError && (
+                <div className="text-xs mt-1" style={{ color: "#ef4444" }}>
+                  ⚠️ {partyError}
+                </div>
+              )}
             </div>
             <div>
               <label className="block text-xs font-semibold mb-1" style={{ color: "var(--text-muted)" }}>Area</label>
