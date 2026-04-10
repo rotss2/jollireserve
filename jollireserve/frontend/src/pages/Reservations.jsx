@@ -205,16 +205,31 @@ export default function Reservations({ user }) {
                 <label className="block text-xs font-semibold mb-2" style={{ color: "var(--text-muted)" }}>
                   🍽️ Pre-order Food (Optional)
                 </label>
-                <div className="space-y-2 max-h-48 overflow-y-auto">
+                <div className="space-y-2 max-h-64 overflow-y-auto">
                   {menuItems.map(item => (
-                    <div key={item.id} className="flex items-center justify-between p-2 rounded" style={{ background: "var(--bg-subtle)" }}>
-                      <div className="flex-1">
-                        <div className="text-sm font-medium">{item.name}</div>
+                    <div key={item.id} className="flex items-center gap-3 p-2 rounded" style={{ background: "var(--bg-subtle)" }}>
+                      {/* Item Image */}
+                      {item.image_url ? (
+                        <img 
+                          src={item.image_url} 
+                          alt={item.name}
+                          className="w-12 h-12 rounded-lg object-cover flex-shrink-0"
+                          onError={(e) => { e.target.style.display = 'none'; }}
+                        />
+                      ) : (
+                        <div className="w-12 h-12 rounded-lg flex-shrink-0 flex items-center justify-center" style={{ background: "var(--bg-input)" }}>
+                          <span className="text-lg">🍽️</span>
+                        </div>
+                      )}
+                      {/* Item Info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium truncate">{item.name}</div>
                         <div className="text-xs" style={{ color: "var(--text-muted)" }}>
                           ₱{item.price} · {item.category}
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
+                      {/* Quantity Controls */}
+                      <div className="flex items-center gap-2 flex-shrink-0">
                         <button 
                           className="btn btn-sm"
                           onClick={() => setSelectedItems(prev => ({ ...prev, [item.id]: Math.max(0, (prev[item.id] || 0) - 1) }))}
@@ -276,6 +291,32 @@ export default function Reservations({ user }) {
                 {r.special_requests && (
                   <div className="text-xs mb-2" style={{ color: "var(--text-muted)" }}>
                     Request: {r.special_requests}
+                  </div>
+                )}
+
+                {/* Pre-order Items with Images */}
+                {r.pre_order_items && r.pre_order_items.length > 0 && (
+                  <div className="mt-2 mb-2">
+                    <div className="text-xs font-semibold mb-1" style={{ color: "var(--text-muted)" }}>
+                      🍽️ Pre-ordered Items:
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {r.pre_order_items.map((item, idx) => (
+                        <div key={idx} className="flex items-center gap-2 px-2 py-1 rounded" style={{ background: "var(--bg-subtle)" }}>
+                          {item.image_url ? (
+                            <img 
+                              src={item.image_url} 
+                              alt={item.name}
+                              className="w-6 h-6 rounded object-cover"
+                              onError={(e) => { e.target.style.display = 'none'; }}
+                            />
+                          ) : (
+                            <span className="text-sm">🍽️</span>
+                          )}
+                          <span className="text-xs">{item.name} × {item.quantity}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
 
