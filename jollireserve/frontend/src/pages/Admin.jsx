@@ -933,16 +933,19 @@ export default function Admin({ user }) {
 
           {/* Save Button */}
           <button className="btn btn-red" onClick={async () => {
+            console.log("[Admin] Saving settings:", settings);
             try {
-              await api.adminUpdateSettings({
+              const result = await api.adminUpdateSettings({
                 max_party_size: settings.max_party_size,
                 queue_enabled: settings.queue_enabled,
                 reservations_enabled: settings.reservations_enabled,
                 email_notifications: settings.email_notifications
               });
+              console.log("[Admin] Settings saved:", result);
               ok("Settings saved successfully! Changes will apply immediately.");
             } catch (e) {
-              err(e);
+              console.error("[Admin] Failed to save settings:", e);
+              err(e?.message || "Failed to save settings. Check console for details.");
             }
           }}>
             💾 Save Settings
