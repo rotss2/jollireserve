@@ -940,8 +940,10 @@ export default function Admin({ user }) {
           <button 
             className={`btn w-full py-3 ${saveStatus === "success" ? "btn-green" : saveStatus === "error" ? "btn-red" : "btn-red"}`}
             disabled={saveStatus === "saving"}
+            style={{ fontSize: "1.1rem", fontWeight: "bold" }}
             onClick={async () => {
               setSaveStatus("saving");
+              alert("Saving settings...");
               console.log("[Admin] Saving settings:", settings);
               try {
                 const result = await api.adminUpdateSettings({
@@ -952,11 +954,13 @@ export default function Admin({ user }) {
                 });
                 console.log("[Admin] Settings saved:", result);
                 setSaveStatus("success");
+                alert("✅ Settings saved successfully!");
                 ok("✅ Settings saved!");
                 setTimeout(() => setSaveStatus("idle"), 3000);
               } catch (e) {
                 console.error("[Admin] Failed to save settings:", e);
                 setSaveStatus("error");
+                alert("❌ Failed to save: " + (e?.message || "Unknown error"));
                 err(e?.message || "❌ Failed to save settings");
                 setTimeout(() => setSaveStatus("idle"), 3000);
               }
