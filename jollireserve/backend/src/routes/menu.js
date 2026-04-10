@@ -65,11 +65,22 @@ router.post("/admin/items", requireAuth, requireRole(["admin"]), async (req, res
       image_url: image_url || "",
       is_available: true,
       created_at: isoNow(),
-      updated_at: isoNow()
+      updated_at: isoNow(),
+      created_by: req.user.id,
+      created_by_name: req.user.name || req.user.email
     };
 
     await db.collection("menu_items").doc(id).set(itemData);
     console.log("[Menu] Created item:", id, name);
+    
+    // Log activity
+    await db.collection("activity_logs").add({
+      id: uuid(),
+      user_id: req.user.id,
+      action: "menu_item_created",
+      details: { item_id: id, name, price, category },
+      created_at: isoNow()
+    });
     
     res.json({ item: itemData });
   } catch (err) {
@@ -84,8 +95,14 @@ router.patch("/admin/items/:id", requireAuth, requireRole(["admin"]), async (req
     const { name, description, price, category, image_url, is_available } = req.body;
     const db = getDb();
     
+    // Get current item for logging
+    const currentDoc = await db.collection("menu_items").doc(req.params.id).get();
+    const currentItem = currentDoc.exists ? currentDoc.data() : { name: "Unknown" };
+    
     const updateData = {
-      updated_at: isoNow()
+      updated_at: isoNow(),
+      updated_by: req.user.id,
+      updated_by_name: req.user.name || req.user.email
     };
     
     if (name !== undefined) updateData.name = name;
@@ -98,6 +115,19 @@ router.patch("/admin/items/:id", requireAuth, requireRole(["admin"]), async (req
     await db.collection("menu_items").doc(req.params.id).update(updateData);
     console.log("[Menu] Updated item:", req.params.id);
     
+    // Log activity
+    await db.collection("activity_logs").add({
+      id: uuid(),
+      user_id: req.user.id,
+      action: "menu_item_updated",
+      details: { 
+        item_id: req.params.id, 
+        name: name || currentItem.name,
+        changes: Object.keys(req.body).join(", ")
+      },
+      created_at: isoNow()
+    });
+    
     res.json({ ok: true });
   } catch (err) {
     console.error("Update menu item error:", err.message);
@@ -109,8 +139,23 @@ router.patch("/admin/items/:id", requireAuth, requireRole(["admin"]), async (req
 router.delete("/admin/items/:id", requireAuth, requireRole(["admin"]), async (req, res) => {
   try {
     const db = getDb();
+    
+    // Get item name before deleting for logging
+    const doc = await db.collection("menu_items").doc(req.params.id).get();
+    const itemName = doc.exists ? doc.data().name : "Unknown";
+    
     await db.collection("menu_items").doc(req.params.id).delete();
     console.log("[Menu] Deleted item:", req.params.id);
+    
+    // Log activity
+    await db.collection("activity_logs").add({
+      id: uuid(),
+      user_id: req.user.id,
+      action: "menu_item_deleted",
+      details: { item_id: req.params.id, name: itemName },
+      created_at: isoNow()
+    });
+    
     res.json({ ok: true });
   } catch (err) {
     console.error("Delete menu item error:", err.message);
