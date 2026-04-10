@@ -935,29 +935,59 @@ export default function Admin({ user }) {
             </div>
           </div>
 
-          {/* Save Button */}
-          <button className="btn btn-red" onClick={async () => {
-            console.log("[Admin] Saving settings:", settings);
-            try {
-              const result = await api.adminUpdateSettings({
-                max_party_size: settings.max_party_size,
-                queue_enabled: settings.queue_enabled,
-                reservations_enabled: settings.reservations_enabled,
-                email_notifications: settings.email_notifications
-              });
-              console.log("[Admin] Settings saved:", result);
-              ok("Settings saved successfully! Changes will apply immediately.");
-            } catch (e) {
-              console.error("[Admin] Failed to save settings:", e);
-              err(e?.message || "Failed to save settings. Check console for details.");
-            }
-          }}>
-            💾 Save Settings
-          </button>
+          {/* Save Button with Success State */}
+          {(() => {
+            const [saveStatus, setSaveStatus] = useState("idle"); // idle, saving, success, error
+            
+            return (
+              <>
+                <button 
+                  className={`btn w-full py-3 ${saveStatus === "success" ? "btn-green" : "btn-red"}`}
+                  disabled={saveStatus === "saving"}
+                  onClick={async () => {
+                    setSaveStatus("saving");
+                    console.log("[Admin] Saving settings:", settings);
+                    try {
+                      const result = await api.adminUpdateSettings({
+                        max_party_size: settings.max_party_size,
+                        queue_enabled: settings.queue_enabled,
+                        reservations_enabled: settings.reservations_enabled,
+                        email_notifications: settings.email_notifications
+                      });
+                      console.log("[Admin] Settings saved:", result);
+                      setSaveStatus("success");
+                      ok("✅ Settings saved successfully! Changes apply immediately.");
+                      // Reset after 3 seconds
+                      setTimeout(() => setSaveStatus("idle"), 3000);
+                    } catch (e) {
+                      console.error("[Admin] Failed to save settings:", e);
+                      setSaveStatus("error");
+                      err(e?.message || "❌ Failed to save settings. Check console.");
+                      setTimeout(() => setSaveStatus("idle"), 3000);
+                    }
+                  }}
+                >
+                  {saveStatus === "saving" && "⏳ Saving..."}
+                  {saveStatus === "success" && "✅ Saved!"}
+                  {saveStatus === "error" && "❌ Try Again"}
+                  {saveStatus === "idle" && "💾 Save Settings"}
+                </button>
 
-          <div className="mt-4 text-xs" style={{ color: "var(--text-muted)" }}>
-            Settings are saved to the database and broadcast to all users in real-time.
-          </div>
+                {saveStatus === "success" && (
+                  <div className="mt-3 p-3 rounded" style={{ background: "rgba(16, 185, 129, 0.2)", border: "1px solid #10b981" }}>
+                    <div style={{ color: "#10b981", fontWeight: "bold" }}>✅ Settings Saved!</div>
+                    <div className="text-sm" style={{ color: "var(--text-muted)" }}>
+                      Max Party Size: {settings.max_party_size} | Queue: {settings.queue_enabled ? "ON" : "OFF"} | Reservations: {settings.reservations_enabled ? "ON" : "OFF"}
+                    </div>
+                  </div>
+                )}
+
+                <div className="mt-4 text-xs" style={{ color: "var(--text-muted)" }}>
+                  Settings are saved to the database and broadcast to all users in real-time.
+                </div>
+              </>
+            );
+          })()}
         </div>
       )}
 
