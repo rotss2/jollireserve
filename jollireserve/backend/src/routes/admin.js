@@ -241,10 +241,21 @@ router.get("/analytics/summary", async (req, res) => {
     const reservationsToday = reservationsSnapshot.size;
 
     // Count active queue
-    const queueSnapshot = await db.collection("queue_entries")
-      .where("status", "in", ["waiting", "called"])
-      .get();
-    const activeQueue = queueSnapshot.size;
+    let activeQueue = 0;
+    try {
+      const queueSnapshot = await db.collection("queue_entries")
+        .where("status", "in", ["waiting", "called"])
+        .get();
+      activeQueue = queueSnapshot.size;
+    } catch (indexErr) {
+      console.warn("[Analytics] Queue index missing, using fallback:", indexErr.message);
+      // Fallback: get all and filter in memory
+      const allQueueSnapshot = await db.collection("queue_entries").get();
+      activeQueue = allQueueSnapshot.docs.filter(doc => {
+        const status = doc.data().status;
+        return status === "waiting" || status === "called";
+      }).length;
+    }
 
     // Count available tables
     const tablesSnapshot = await db.collection("tables")
