@@ -122,10 +122,17 @@ export default function Queue({ user }) {
               className="input"
               type="number"
               min="1"
+              max={maxPartySize}
               value={party}
               onChange={(e) => setParty(e.target.value)}
-              placeholder="Party size"
+              placeholder={`Party size (max ${maxPartySize})`}
+              style={partyError ? { border: "2px solid #ef4444" } : {}}
             />
+            {partyError && (
+              <div className="text-xs" style={{ color: "#ef4444" }}>
+                ⚠️ {partyError}
+              </div>
+            )}
             <button className="btn btn-red w-full py-3" onClick={join}>
               🐝 Join Queue
             </button>
