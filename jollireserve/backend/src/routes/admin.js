@@ -496,4 +496,201 @@ router.post("/settings", requireAuth, requireRole(["admin"]), async (req, res) =
   }
 });
 
+// ── Admin: Get All Reservations ─────────────────────────
+router.get("/reservations", requireAuth, requireRole(["admin", "staff"]), async (req, res) => {
+  try {
+    const db = getDb();
+    const snapshot = await db.collection("reservations")
+      .orderBy("created_at", "desc")
+      .get();
+    
+    const reservations = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    res.json({ reservations });
+  } catch (e) {
+    console.error("Get reservations error:", e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── Admin: Confirm Reservation ─────────────────────────
+router.post("/reservations/:id/confirm", requireAuth, requireRole(["admin", "staff"]), async (req, res) => {
+  try {
+    const db = getDb();
+    const { id } = req.params;
+    
+    const doc = await db.collection("reservations").doc(id).get();
+    if (!doc.exists) return res.status(404).json({ error: "Reservation not found" });
+    
+    const reservation = doc.data();
+    
+    await db.collection("reservations").doc(id).update({
+      status: "confirmed",
+      confirmed_at: isoNow(),
+      confirmed_by: req.user.id
+    });
+    
+    // Log activity
+    await db.collection("activity_logs").add({
+      id: uuid(),
+      user_id: reservation.user_id,
+      action: "reservation_confirmed",
+      details: { reservation_id: id, date: reservation.date, time: reservation.time },
+      created_at: isoNow()
+    });
+    
+    res.json({ ok: true, message: "Reservation confirmed" });
+  } catch (e) {
+    console.error("Confirm reservation error:", e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── Admin: Cancel Reservation ─────────────────────────
+router.post("/reservations/:id/cancel", requireAuth, requireRole(["admin", "staff"]), async (req, res) => {
+  try {
+    const db = getDb();
+    const { id } = req.params;
+    
+    const doc = await db.collection("reservations").doc(id).get();
+    if (!doc.exists) return res.status(404).json({ error: "Reservation not found" });
+    
+    const reservation = doc.data();
+    
+    await db.collection("reservations").doc(id).update({
+      status: "cancelled",
+      cancelled_at: isoNow(),
+      cancelled_by: req.user.id
+    });
+    
+    // Log activity
+    await db.collection("activity_logs").add({
+      id: uuid(),
+      user_id: reservation.user_id,
+      action: "reservation_cancelled",
+      details: { reservation_id: id, date: reservation.date, time: reservation.time },
+      created_at: isoNow()
+    });
+    
+    res.json({ ok: true, message: "Reservation cancelled" });
+  } catch (e) {
+    console.error("Cancel reservation error:", e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── Admin: Get All Queue Entries ─────────────────────────
+router.get("/queue", requireAuth, requireRole(["admin", "staff"]), async (req, res) => {
+  try {
+    const db = getDb();
+    const snapshot = await db.collection("queue_entries")
+      .orderBy("joined_at", "desc")
+      .get();
+    
+    const entries = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    res.json({ entries });
+  } catch (e) {
+    console.error("Get queue error:", e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── Admin: Call Queue Entry ─────────────────────────
+router.post("/queue/:id/call", requireAuth, requireRole(["admin", "staff"]), async (req, res) => {
+  try {
+    const db = getDb();
+    const { id } = req.params;
+    
+    const doc = await db.collection("queue_entries").doc(id).get();
+    if (!doc.exists) return res.status(404).json({ error: "Queue entry not found" });
+    
+    const entry = doc.data();
+    
+    await db.collection("queue_entries").doc(id).update({
+      status: "called",
+      called_at: isoNow(),
+      called_by: req.user.id
+    });
+    
+    // Log activity
+    await db.collection("activity_logs").add({
+      id: uuid(),
+      user_id: entry.user_id,
+      action: "queue_called",
+      details: { queue_id: id, party_size: entry.party_size },
+      created_at: isoNow()
+    });
+    
+    res.json({ ok: true, message: "Customer called" });
+  } catch (e) {
+    console.error("Call queue error:", e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── Admin: Seat Queue Entry ─────────────────────────
+router.post("/queue/:id/seat", requireAuth, requireRole(["admin", "staff"]), async (req, res) => {
+  try {
+    const db = getDb();
+    const { id } = req.params;
+    
+    const doc = await db.collection("queue_entries").doc(id).get();
+    if (!doc.exists) return res.status(404).json({ error: "Queue entry not found" });
+    
+    const entry = doc.data();
+    
+    await db.collection("queue_entries").doc(id).update({
+      status: "seated",
+      seated_at: isoNow(),
+      seated_by: req.user.id
+    });
+    
+    // Log activity
+    await db.collection("activity_logs").add({
+      id: uuid(),
+      user_id: entry.user_id,
+      action: "queue_seated",
+      details: { queue_id: id, party_size: entry.party_size },
+      created_at: isoNow()
+    });
+    
+    res.json({ ok: true, message: "Customer seated" });
+  } catch (e) {
+    console.error("Seat queue error:", e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── Admin: Cancel Queue Entry ─────────────────────────
+router.post("/queue/:id/cancel", requireAuth, requireRole(["admin", "staff"]), async (req, res) => {
+  try {
+    const db = getDb();
+    const { id } = req.params;
+    
+    const doc = await db.collection("queue_entries").doc(id).get();
+    if (!doc.exists) return res.status(404).json({ error: "Queue entry not found" });
+    
+    const entry = doc.data();
+    
+    await db.collection("queue_entries").doc(id).update({
+      status: "cancelled",
+      cancelled_at: isoNow(),
+      cancelled_by: req.user.id
+    });
+    
+    // Log activity
+    await db.collection("activity_logs").add({
+      id: uuid(),
+      user_id: entry.user_id,
+      action: "queue_cancelled",
+      details: { queue_id: id, party_size: entry.party_size },
+      created_at: isoNow()
+    });
+    
+    res.json({ ok: true, message: "Queue entry cancelled" });
+  } catch (e) {
+    console.error("Cancel queue error:", e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 module.exports = router;

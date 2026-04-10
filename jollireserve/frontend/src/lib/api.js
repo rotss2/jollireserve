@@ -265,6 +265,36 @@ export const api = {
     return res.data;
   },
 
+  // ── Admin Reservations & Queue ─────────────────────────
+  async adminGetReservations() {
+    const res = await instance.get("/admin/reservations");
+    return res.data;
+  },
+  async adminConfirmReservation(id) {
+    const res = await instance.post(`/admin/reservations/${id}/confirm`);
+    return res.data;
+  },
+  async adminCancelReservation(id) {
+    const res = await instance.post(`/admin/reservations/${id}/cancel`);
+    return res.data;
+  },
+  async adminGetQueue() {
+    const res = await instance.get("/admin/queue");
+    return res.data;
+  },
+  async adminCallQueue(id) {
+    const res = await instance.post(`/admin/queue/${id}/call`);
+    return res.data;
+  },
+  async adminSeatQueue(id) {
+    const res = await instance.post(`/admin/queue/${id}/seat`);
+    return res.data;
+  },
+  async adminCancelQueue(id) {
+    const res = await instance.post(`/admin/queue/${id}/cancel`);
+    return res.data;
+  },
+
   // ── Payments (PayMongo TEST MODE) ────────────────────────
   async createPaymentIntent(amount, description, reservation_id) {
     const res = await instance.post("/payments/create-intent", { amount, description, reservation_id });

@@ -11,7 +11,7 @@ function toISO(d) {
   return `${dd.getFullYear()}-${String(dd.getMonth() + 1).padStart(2, "0")}-${String(dd.getDate()).padStart(2, "0")}`;
 }
 
-const TABS = ["Dashboard", "Tables", "Users", "Activity", "Announcements", "Settings", "Menu"];
+const TABS = ["Dashboard", "Reservations", "Queue", "Tables", "Users", "Activity", "Announcements", "Settings", "Menu"];
 
 export default function Admin({ user }) {
   const [tab, setTab] = useState("Dashboard");
@@ -42,6 +42,12 @@ export default function Admin({ user }) {
   // Menu management state
   const [menuItems, setMenuItems] = useState([]);
   const [newMenuItem, setNewMenuItem] = useState({ name: "", description: "", price: "", category: "Mains", image_url: "" });
+
+  // Reservations and Queue management state
+  const [reservations, setReservations] = useState([]);
+  const [queueEntries, setQueueEntries] = useState([]);
+  const [selectedReservation, setSelectedReservation] = useState(null);
+  const [selectedQueueEntry, setSelectedQueueEntry] = useState(null);
 
   const ok = (msg) => setToast({ message: msg, type: "success" });
   const err = (e) => setToast({ message: e?.response?.data?.error || e.message || "Error", type: "error" });
@@ -134,6 +140,16 @@ export default function Admin({ user }) {
     }
   }, [tab]);
 
+  // Load reservations and queue when tabs are selected
+  useEffect(() => {
+    if (tab === "Reservations") {
+      loadReservations();
+    }
+    if (tab === "Queue") {
+      loadQueueEntries();
+    }
+  }, [tab]);
+
   async function createTable() {
     const name = prompt("Table name (e.g. T8)"); if (!name) return;
     const area = prompt("Area: indoor/outdoor/vip", "indoor") || "indoor";
@@ -181,6 +197,79 @@ export default function Admin({ user }) {
       setMenuItems(data.items || []);
     } catch (e) {
       console.error("Load menu items error:", e);
+    }
+  }
+
+  async function loadReservations() {
+    try {
+      const data = await api.adminGetReservations?.().catch(() => ({ reservations: [] }));
+      setReservations(data?.reservations || []);
+    } catch (e) {
+      console.error("Load reservations error:", e);
+    }
+  }
+
+  async function loadQueueEntries() {
+    try {
+      const data = await api.adminGetQueue?.().catch(() => ({ entries: [] }));
+      setQueueEntries(data?.entries || []);
+    } catch (e) {
+      console.error("Load queue error:", e);
+    }
+  }
+
+  async function confirmReservation(id) {
+    if (!confirm("Confirm this reservation?")) return;
+    try {
+      await api.adminConfirmReservation?.(id);
+      ok("Reservation confirmed! ✅");
+      loadReservations();
+    } catch (e) {
+      err(e);
+    }
+  }
+
+  async function cancelReservation(id) {
+    if (!confirm("Cancel this reservation?")) return;
+    try {
+      await api.adminCancelReservation?.(id);
+      ok("Reservation cancelled!");
+      loadReservations();
+    } catch (e) {
+      err(e);
+    }
+  }
+
+  async function callQueueEntry(id) {
+    if (!confirm("Call this customer to the counter?")) return;
+    try {
+      await api.adminCallQueue?.(id);
+      ok("Customer called! 📢");
+      loadQueueEntries();
+    } catch (e) {
+      err(e);
+    }
+  }
+
+  async function seatQueueEntry(id) {
+    if (!confirm("Mark as seated?")) return;
+    try {
+      await api.adminSeatQueue?.(id);
+      ok("Customer seated! ✅");
+      loadQueueEntries();
+    } catch (e) {
+      err(e);
+    }
+  }
+
+  async function cancelQueueEntry(id) {
+    if (!confirm("Cancel this queue entry?")) return;
+    try {
+      await api.adminCancelQueue?.(id);
+      ok("Queue entry cancelled!");
+      loadQueueEntries();
+    } catch (e) {
+      err(e);
     }
   }
 
@@ -352,6 +441,162 @@ export default function Admin({ user }) {
             </div>
           </div>
         </>
+      )}
+
+      {/* ── Reservations Tab ───────────────────────────────────────── */}
+      {tab === "Reservations" && (
+        <div className="card p-5">
+          <div style={{ display: "flex", alignItems: "center", marginBottom: "1rem" }}>
+            <div className="font-black">📅 Reservations ({reservations.length})</div>
+            <button className="ml-auto btn btn-outline text-sm" onClick={loadReservations}>🔄 Refresh</button>
+          </div>
+          
+          {reservations.length === 0 ? (
+            <div className="text-center py-8">
+              <div className="text-4xl mb-2">📅</div>
+              <p style={{ color: "var(--text-muted)" }}>No reservations yet.</p>
+            </div>
+          ) : (
+            <div style={{ display: "grid", gap: "0.75rem" }}>
+              {reservations.map(r => (
+                <div key={r.id} style={{ ...cardStyle, borderLeft: `4px solid ${r.status === 'confirmed' ? '#10b981' : r.status === 'pending' ? '#f59e0b' : '#ef4444'}` }}>
+                  <div style={rowStyle}>
+                    <div style={{ flex: 1 }}>
+                      <div className="font-semibold">
+                        {r.user_name || r.name || "Guest"} · {r.email || "No email"}
+                      </div>
+                      <div className="text-sm" style={{ color: "var(--text-muted)" }}>
+                        📅 {r.date} at {r.time} · 👥 Party of {r.party_size}
+                        {r.area_pref && ` · 🪴 ${r.area_pref}`}
+                        {r.table_name && ` · 🪑 Table: ${r.table_name}`}
+                      </div>
+                      {r.special_requests && (
+                        <div className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
+                          📝 {r.special_requests}
+                        </div>
+                      )}
+                      <div className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
+                        Created: {r.created_at?.slice(0, 16).replace('T', ' ')}
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem", alignItems: "flex-end" }}>
+                      <span style={badgeStyle(r.status === 'confirmed' ? 'green' : r.status === 'pending' ? 'yellow' : r.status === 'cancelled' ? 'red' : '')}>
+                        {r.status || "pending"}
+                      </span>
+                      <div style={{ display: "flex", gap: "0.3rem", marginTop: "0.3rem" }}>
+                        {r.status === 'pending' && (
+                          <button style={{ ...btnSm, background: '#10b981', color: 'white' }} onClick={() => confirmReservation(r.id)}>
+                            ✅ Confirm
+                          </button>
+                        )}
+                        {r.status !== 'cancelled' && r.status !== 'completed' && (
+                          <button style={{ ...btnSm, background: '#ef4444', color: 'white' }} onClick={() => cancelReservation(r.id)}>
+                            ❌ Cancel
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Queue Tab ───────────────────────────────────────── */}
+      {tab === "Queue" && (
+        <div className="card p-5">
+          <div style={{ display: "flex", alignItems: "center", marginBottom: "1rem" }}>
+            <div className="font-black">🐝 Queue Management ({queueEntries.length})</div>
+            <button className="ml-auto btn btn-outline text-sm" onClick={loadQueueEntries}>🔄 Refresh</button>
+          </div>
+          
+          {queueEntries.length === 0 ? (
+            <div className="text-center py-8">
+              <div className="text-4xl mb-2">🐝</div>
+              <p style={{ color: "var(--text-muted)" }}>No one in queue.</p>
+            </div>
+          ) : (
+            <div style={{ display: "grid", gap: "0.75rem" }}>
+              {/* Waiting entries first */}
+              {queueEntries.filter(e => e.status === 'waiting').map((q, idx) => (
+                <div key={q.id} style={{ ...cardStyle, borderLeft: '4px solid #3b82f6' }}>
+                  <div style={rowStyle}>
+                    <div style={{ flex: 1 }}>
+                      <div className="font-semibold">
+                        #{idx + 1} · {q.name || "Guest"} · 👥 Party of {q.party_size}
+                      </div>
+                      <div className="text-sm" style={{ color: "var(--text-muted)" }}>
+                        Joined: {q.joined_at?.slice(0, 16).replace('T', ' ')}
+                      </div>
+                      {q.user_id && (
+                        <div className="text-xs" style={{ color: "var(--red)" }}>
+                          👤 Registered User
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem", alignItems: "flex-end" }}>
+                      <span style={badgeStyle('blue')}>⏳ Waiting</span>
+                      <div style={{ display: "flex", gap: "0.3rem", marginTop: "0.3rem" }}>
+                        <button style={{ ...btnSm, background: '#f59e0b', color: 'white' }} onClick={() => callQueueEntry(q.id)}>
+                          📢 Call
+                        </button>
+                        <button style={{ ...btnSm, background: '#10b981', color: 'white' }} onClick={() => seatQueueEntry(q.id)}>
+                          ✅ Seat
+                        </button>
+                        <button style={{ ...btnSm, background: '#ef4444', color: 'white' }} onClick={() => cancelQueueEntry(q.id)}>
+                          ❌
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              
+              {/* Called entries */}
+              {queueEntries.filter(e => e.status === 'called').map(q => (
+                <div key={q.id} style={{ ...cardStyle, borderLeft: '4px solid #f59e0b', background: 'rgba(245, 158, 11, 0.1)' }}>
+                  <div style={rowStyle}>
+                    <div style={{ flex: 1 }}>
+                      <div className="font-semibold">
+                        {q.name || "Guest"} · 👥 Party of {q.party_size}
+                      </div>
+                      <div className="text-sm" style={{ color: "var(--text-muted)" }}>
+                        📢 Called at: {q.called_at?.slice(0, 16).replace('T', ' ')}
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem", alignItems: "flex-end" }}>
+                      <span style={badgeStyle('yellow')}>📢 Called</span>
+                      <div style={{ display: "flex", gap: "0.3rem", marginTop: "0.3rem" }}>
+                        <button style={{ ...btnSm, background: '#10b981', color: 'white' }} onClick={() => seatQueueEntry(q.id)}>
+                          ✅ Seat
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              {/* Seated entries (show last 5) */}
+              {queueEntries.filter(e => e.status === 'seated').slice(0, 5).map(q => (
+                <div key={q.id} style={{ ...cardStyle, borderLeft: '4px solid #10b981', opacity: 0.7 }}>
+                  <div style={rowStyle}>
+                    <div style={{ flex: 1 }}>
+                      <div className="font-semibold">
+                        {q.name || "Guest"} · 👥 Party of {q.party_size}
+                      </div>
+                      <div className="text-sm" style={{ color: "var(--text-muted)" }}>
+                        ✅ Seated at: {q.seated_at?.slice(0, 16).replace('T', ' ')}
+                      </div>
+                    </div>
+                    <span style={badgeStyle('green')}>✅ Seated</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       )}
 
       {tab === "Tables" && (
