@@ -79,7 +79,7 @@ router.get("/mine", requireAuth, async (req, res) => {
 
 router.post("/", requireAuth, async (req, res, next) => {
   try {
-    const { date, time, party_size, area_pref, special_requests } = req.body || {};
+    const { date, time, party_size, area_pref, special_requests, pre_order_items } = req.body || {};
     if (!date || !time || !party_size) return res.status(400).json({ error: "date, time, party_size required" });
 
     // Check max party size
@@ -92,16 +92,20 @@ router.post("/", requireAuth, async (req, res, next) => {
       });
     }
 
+    // Get available tables for this party size
     const db = getDb();
-    const id = uuid();
-    const createdAt = isoNow();
-
-    // Get available tables
-    const tablesSnapshot = await db.collection("tables").where("is_active", "==", 1).get();
-    const availableTables = tablesSnapshot.docs.map(doc => doc.data());
+    const tablesSnapshot = await db.collection("tables")
+      .where("is_active", "==", true)
+      .where("capacity", ">=", Number(party_size))
+      .get();
+    
+    const availableTables = tablesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     
     // Simple table assignment - pick first available
     const chosenTable = availableTables.length > 0 ? availableTables[0] : null;
+
+    const id = uuid();
+    const createdAt = isoNow();
 
     const reservationData = {
       id,
@@ -111,11 +115,16 @@ router.post("/", requireAuth, async (req, res, next) => {
       party_size: Number(party_size),
       area_pref: area_pref || null,
       special_requests: special_requests || null,
+      pre_order_items: pre_order_items || null,
+      pre_order_total: pre_order_items?.reduce((sum, item) => sum + (item.price * item.quantity), 0) || 0,
       table_id: chosenTable ? chosenTable.id : null,
-      status: "confirmed",
-      created_at: createdAt
+      table_name: chosenTable ? chosenTable.name : null,
+      table_area: chosenTable ? chosenTable.area : null,
+      status: "pending",
+      created_at: createdAt,
+      updated_at: createdAt
     };
-
+    
     await db.collection("reservations").doc(id).set(reservationData);
     
     // Log activity

@@ -188,7 +188,15 @@ export default function Admin({ user }) {
 
   async function viewHistory(u) {
     setSelectedUser(u);
-    try { const h = await api.adminUserHistory(u.id); setUserHistory(h); } catch (e) { err(e); }
+    setUserHistory(null); // Reset to loading state
+    try { 
+      const h = await api.adminUserHistory(u.id); 
+      setUserHistory(h); 
+    } catch (e) { 
+      console.error("[Admin] Failed to load user history:", e);
+      err(e); 
+      setUserHistory({ reservations: [], queue: [], error: true }); // Show empty state on error
+    }
   }
 
   async function loadMenuItems() {
@@ -702,7 +710,8 @@ export default function Admin({ user }) {
           </div>
           <div className="font-bold mb-2">Reservations</div>
           {!userHistory && <div className="text-sm" style={{ color: "var(--text-muted)" }}>Loading...</div>}
-          {userHistory?.reservations?.length === 0 && <div className="text-sm mb-3" style={{ color: "var(--text-muted)" }}>No reservations.</div>}
+          {userHistory?.error && <div className="text-sm mb-3" style={{ color: "#ef4444" }}>⚠️ Failed to load history. Indexes may still be building (wait 5-10 minutes).</div>}
+          {userHistory && !userHistory.error && userHistory.reservations?.length === 0 && <div className="text-sm mb-3" style={{ color: "var(--text-muted)" }}>No reservations.</div>}
           {userHistory?.reservations?.map(r => (
             <div key={r.id} style={{ ...cardStyle, marginBottom: "0.35rem" }}>
               <div style={rowStyle}>

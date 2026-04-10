@@ -50,14 +50,29 @@ export default function Reservations({ user }) {
   const [toast, setToast] = useState({ message: "", type: "success" });
   const [expandedQR, setExpandedQR] = useState(null); // reservation id with QR open
   const [partyError, setPartyError] = useState(null);
+  
+  // Menu pre-order state
+  const [menuItems, setMenuItems] = useState([]);
+  const [selectedItems, setSelectedItems] = useState({}); // { itemId: quantity }
 
   async function load() {
     const data = await api.myReservations();
     setList(data.reservations || []);
   }
 
+  // Load available menu items for pre-ordering
+  async function loadMenuItems() {
+    try {
+      const data = await api.getMenuItems?.().catch(() => ({ items: [] }));
+      setMenuItems(data?.items?.filter(item => item.is_available) || []);
+    } catch (e) {
+      console.log("Menu items not available for pre-order");
+    }
+  }
+
   useEffect(() => {
     load();
+    loadMenuItems();
     connectWS();
     const off = onWSMessage((msg) => {
       if (msg.type === "reservations:changed") load();
@@ -78,11 +93,20 @@ export default function Reservations({ user }) {
       return;
     }
 
+    // Build pre-order items list
+    const preOrderItems = Object.entries(selectedItems)
+      .filter(([_, qty]) => qty > 0)
+      .map(([id, qty]) => {
+        const item = menuItems.find(i => i.id === id);
+        return item ? { id, name: item.name, price: item.price, quantity: qty } : null;
+      }).filter(Boolean);
+
     try {
       await api.createReservation({
         date, time, party_size: Number(party),
         area_pref: area || null,
         special_requests: req || null,
+        pre_order_items: preOrderItems.length > 0 ? preOrderItems : null,
       });
       setToast({ message: "Reservation confirmed!", type: "success" });
       setDate(""); setTime(""); setReq("");
@@ -158,7 +182,48 @@ export default function Reservations({ user }) {
               <label className="block text-xs font-semibold mb-1" style={{ color: "var(--text-muted)" }}>Special Requests</label>
               <input className="input" value={req} onChange={(e) => setReq(e.target.value)} placeholder="Optional" />
             </div>
-            <button className="btn btn-red w-full py-3" onClick={createReservation}>
+            
+            {/* Pre-order Menu Section */}
+            {menuItems.length > 0 && (
+              <div className="mt-4 pt-4 border-t" style={{ borderColor: "var(--border)" }}>
+                <label className="block text-xs font-semibold mb-2" style={{ color: "var(--text-muted)" }}>
+                  🍽️ Pre-order Food (Optional)
+                </label>
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {menuItems.map(item => (
+                    <div key={item.id} className="flex items-center justify-between p-2 rounded" style={{ background: "var(--bg-subtle)" }}>
+                      <div className="flex-1">
+                        <div className="text-sm font-medium">{item.name}</div>
+                        <div className="text-xs" style={{ color: "var(--text-muted)" }}>
+                          ₱{item.price} · {item.category}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button 
+                          className="btn btn-sm"
+                          onClick={() => setSelectedItems(prev => ({ ...prev, [item.id]: Math.max(0, (prev[item.id] || 0) - 1) }))}
+                        >-</button>
+                        <span className="w-8 text-center">{selectedItems[item.id] || 0}</span>
+                        <button 
+                          className="btn btn-sm"
+                          onClick={() => setSelectedItems(prev => ({ ...prev, [item.id]: (prev[item.id] || 0) + 1 }))}
+                        >+</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {Object.values(selectedItems).some(qty => qty > 0) && (
+                  <div className="mt-2 text-sm font-semibold" style={{ color: "var(--red)" }}>
+                    Total: ₱{Object.entries(selectedItems).reduce((sum, [id, qty]) => {
+                      const item = menuItems.find(i => i.id === id);
+                      return sum + (item?.price || 0) * qty;
+                    }, 0)}
+                  </div>
+                )}
+              </div>
+            )}
+            
+            <button className="btn btn-red w-full py-3 mt-4" onClick={createReservation}>
               Confirm Reservation
             </button>
           </div>
