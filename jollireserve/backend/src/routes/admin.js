@@ -480,7 +480,7 @@ router.get("/settings/admin", async (req, res) => {
 router.post("/settings", requireAuth, requireRole(["admin"]), async (req, res) => {
   try {
     const db = getDb();
-    const { max_party_size, max_advance_days, restaurant_name, contact_email, contact_phone } = req.body || {};
+    const { max_party_size, max_advance_days, restaurant_name, contact_email, contact_phone, queue_enabled, reservations_enabled, email_notifications } = req.body || {};
     
     const updateData = {};
     if (max_party_size !== undefined) updateData.max_party_size = Number(max_party_size);
@@ -488,6 +488,9 @@ router.post("/settings", requireAuth, requireRole(["admin"]), async (req, res) =
     if (restaurant_name !== undefined) updateData.restaurant_name = restaurant_name;
     if (contact_email !== undefined) updateData.contact_email = contact_email;
     if (contact_phone !== undefined) updateData.contact_phone = contact_phone;
+    if (queue_enabled !== undefined) updateData.queue_enabled = Boolean(queue_enabled);
+    if (reservations_enabled !== undefined) updateData.reservations_enabled = Boolean(reservations_enabled);
+    if (email_notifications !== undefined) updateData.email_notifications = Boolean(email_notifications);
     updateData.updated_at = isoNow();
     updateData.updated_by = req.user.id;
     
