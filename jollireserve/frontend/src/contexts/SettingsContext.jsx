@@ -21,17 +21,27 @@ export function SettingsProvider({ children }) {
 
   // Listen for WebSocket settings updates
   useEffect(() => {
+    if (typeof onWSMessage !== 'function') {
+      console.warn("[SettingsContext] onWSMessage not available");
+      return;
+    }
     const unsubscribe = onWSMessage((msg) => {
       if (msg.type === "settings:changed" && msg.settings) {
         console.log("[SettingsContext] Settings updated via WebSocket:", msg.settings);
         setSettings(prev => ({ ...prev, ...msg.settings }));
       }
     });
-    return () => unsubscribe();
+    return () => unsubscribe?.();
   }, []);
 
   const loadSettings = useCallback(async () => {
     try {
+      // Safety check - api.getSettings might not be available during build
+      if (typeof api?.getSettings !== 'function') {
+        console.warn("[SettingsContext] api.getSettings not available, using defaults");
+        setLoading(false);
+        return;
+      }
       const data = await api.getSettings();
       if (data?.settings) {
         setSettings(data.settings);
