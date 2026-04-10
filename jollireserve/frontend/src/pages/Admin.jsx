@@ -129,6 +129,10 @@ export default function Admin({ user }) {
       if (msg.type === "activity" && msg.activity) {
         setAdminActivity(prev => [msg.activity, ...prev].slice(0, 50));
       }
+      if (msg.type === "settings:changed" && msg.settings) {
+        console.log("[Admin] Settings updated via WebSocket:", msg.settings);
+        setSettings(prev => ({ ...prev, ...msg.settings }));
+      }
     });
     return () => off();
   }, []);
