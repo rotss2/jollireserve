@@ -109,7 +109,7 @@ export default function Reservations({ user }) {
         pre_order_items: preOrderItems.length > 0 ? preOrderItems : null,
       });
       setToast({ message: "Reservation confirmed!", type: "success" });
-      setDate(""); setTime(""); setReq("");
+      setDate(""); setTime(""); setReq(""); setSelectedItems({});
       await load();
     } catch (e) {
       // Check if error is about max party size
