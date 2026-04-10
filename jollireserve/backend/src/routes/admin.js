@@ -466,7 +466,7 @@ router.get("/settings/admin", async (req, res) => {
 });
 
 // Update settings (admin)
-router.post("/settings", async (req, res) => {
+router.post("/settings", requireAuth, requireRole(["admin"]), async (req, res) => {
   try {
     const db = getDb();
     const { max_party_size, max_advance_days, restaurant_name, contact_email, contact_phone } = req.body || {};
