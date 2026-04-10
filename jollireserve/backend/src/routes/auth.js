@@ -137,6 +137,20 @@ router.post("/login", async (req, res) => {
     if (!email || !password)
       return res.status(400).json({ error: "Email and password are required" });
 
+    // EMERGENCY FALLBACK - Demo user for defense presentation
+    if (email.toLowerCase() === "demo@jollireserve.com" && password === "demo123") {
+      console.log("[LOGIN] Demo user login - BYPASSING DATABASE");
+      const demoUser = { 
+        id: "demo-user-001", 
+        email: "demo@jollireserve.com", 
+        name: "Demo User", 
+        role: "user", 
+        is_verified: true 
+      };
+      const token = signToken(demoUser);
+      return res.json({ token, user: demoUser });
+    }
+
     const db = getDb();
     const usersCol = db.collection("users");
     
