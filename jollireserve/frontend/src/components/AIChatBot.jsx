@@ -1,84 +1,304 @@
 import { useState, useRef, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 
-const MOCK_RESPONSES = {
-  greeting: [
-    "Hello! I'm JolliBot, your AI dining assistant! 🍗",
-    "I can help you book tables, check queue status, or recommend menu items!",
-    "What would you like to do today?"
-  ],
-  reservation: [
-    "I'd be happy to help you make a reservation! 📅",
-    "What date and time works best for you?",
-    "Also, how many people will be joining?"
-  ],
-  queue: [
-    "Let me check the current queue for you... 🔍",
-    "Right now there are about 8 parties ahead.",
-    "Estimated wait time: 20-25 minutes.",
-    "Would you like me to add you to the queue?"
-  ],
-  menu: [
-    "Our most popular items today are:",
-    "🥇 2pc Chicken Joy with Spaghetti",
-    "🥇 Peach Mango Pie (freshly baked!)",
-    "🥇 Jolly Hotdog with Cheese",
-    "Would you like to pre-order any of these?"
-  ],
-  payment: [
-    "We accept GCash, Maya, GrabPay, and credit cards! 💳",
-    "All payments are secure and encrypted.",
-    "Would you like me to show you the payment options?"
-  ],
-  vip: [
-    "You're currently a Silver member! 🥈",
-    "You're only 150 points away from Gold status.",
-    "Gold members get priority seating and exclusive menu previews!"
-  ],
-  help: [
-    "Here's what I can do for you:",
-    "• 📅 Make or modify reservations",
-    "• 🐝 Join or check queue status",
-    "• 🍗 Browse menu and pre-order",
-    "• 💳 Process payments",
-    "• 🏆 Check your loyalty status",
-    "What can I help you with?"
-  ],
-  default: [
-    "I understand! Let me help you with that. 🤔",
-    "Could you provide a bit more detail so I can assist better?",
-    "Or type 'help' to see what I can do!"
-  ]
-};
-
-const KEYWORDS = {
-  book: 'reservation',
-  reserve: 'reservation',
-  table: 'reservation',
-  queue: 'queue',
-  wait: 'queue',
-  line: 'queue',
-  menu: 'menu',
-  food: 'menu',
-  order: 'menu',
-  chicken: 'menu',
-  pay: 'payment',
-  payment: 'payment',
-  gcash: 'payment',
-  points: 'vip',
-  vip: 'vip',
-  status: 'vip',
-  loyalty: 'vip',
-  help: 'help',
-  hi: 'greeting',
-  hello: 'greeting',
-  hey: 'greeting'
-};
-
-function detectIntent(message) {
-  const lower = message.toLowerCase();
-  for (const [keyword, intent] of Object.entries(KEYWORDS)) {
-    if (lower.includes(keyword)) return intent;
+// Enhanced AI Intent Detection System with scoring and context
+const INTENT_PATTERNS = {
+  greeting: {
+    keywords: ['hi', 'hello', 'hey', 'good morning', 'good afternoon', 'good evening', 'sup', 'yo', 'hola', 'howdy'],
+    phrases: ['how are you', 'what\'s up', 'how is it going'],
+    weight: 1
+  },
+  reservation: {
+    keywords: ['book', 'reserve', 'table', 'booking', 'reservation', 'dine', 'dining', 'eat', 'seat', 'seating', 'table for'],
+    phrases: ['make a reservation', 'book a table', 'reserve a spot', 'get a table', 'want to eat', 'like to dine', 'need a table'],
+    weight: 1.2
+  },
+  queue: {
+    keywords: ['queue', 'wait', 'line', 'waiting', 'turn', 'spot', 'walk in', 'walk-in', 'now', 'today', 'immediate'],
+    phrases: ['join queue', 'get in line', 'waiting list', 'how long', 'current wait', 'walk in', 'available now'],
+    weight: 1.2
+  },
+  menu: {
+    keywords: ['menu', 'food', 'order', 'eat', 'meal', 'chicken', 'spaghetti', 'burger', 'drink', 'pie', 'price', 'cost', 'how much'],
+    phrases: ['what do you have', 'what\'s on the menu', 'show me food', 'recommend', 'what is good', 'best seller', 'popular'],
+    weight: 1
+  },
+  payment: {
+    keywords: ['pay', 'payment', 'gcash', 'maya', 'grabpay', 'card', 'credit', 'debit', 'cash', 'money', 'price', 'cost', 'bill', 'checkout'],
+    phrases: ['how to pay', 'payment method', 'can i pay', 'accept payment', 'payment options'],
+    weight: 1.1
+  },
+  vip: {
+    keywords: ['vip', 'points', 'loyalty', 'member', 'status', 'tier', 'gold', 'silver', 'platinum', 'reward', 'benefit', 'exclusive'],
+    phrases: ['my points', 'membership status', 'loyalty program', 'vip benefits', 'check points', 'how many points'],
+    weight: 1
+  },
+  cancel: {
+    keywords: ['cancel', 'remove', 'delete', 'change', 'modify', 'update', 'edit', 'reschedule'],
+    phrases: ['cancel reservation', 'change booking', 'modify order', 'want to cancel', 'need to change'],
+    weight: 1.3
+  },
+  location: {
+    keywords: ['location', 'address', 'where', 'find', 'direction', 'map', 'branch', 'store', 'restaurant'],
+    phrases: ['where are you', 'how to get there', 'what is the address', 'location please'],
+    weight: 0.9
+  },
+  hours: {
+    keywords: ['hour', 'time', 'open', 'close', 'opening', 'closing', 'when', 'schedule', 'operating'],
+    phrases: ['what time', 'when do you open', 'when do you close', 'business hours', 'opening hours'],
+    weight: 0.9
+  },
+  help: {
+    keywords: ['help', 'support', 'assist', 'question', 'how to', 'what can', 'guide', 'explain'],
+    phrases: ['i need help', 'can you help', 'how do i', 'what should i', 'assistance'],
+    weight: 1
+  },
+  complaint: {
+    keywords: ['bad', 'terrible', 'awful', 'problem', 'issue', 'complaint', 'unhappy', 'disappointed', 'slow', 'rude'],
+    phrases: ['not happy', 'very bad', 'not satisfied', 'poor service', 'waiting too long'],
+    weight: 1.5
+  },
+  compliment: {
+    keywords: ['good', 'great', 'excellent', 'amazing', 'love', 'awesome', 'best', 'perfect', 'wonderful', 'delicious'],
+    phrases: ['so good', 'really great', 'love it', 'best experience', 'highly recommend'],
+    weight: 1
+  },
+  goodbye: {
+    keywords: ['bye', 'goodbye', 'see you', 'later', 'thanks', 'thank you', 'cya'],
+    phrases: ['thank you', 'thanks for', 'see you later', 'have a good', 'that\'s all'],
+    weight: 0.8
   }
+};
+
+// Context-aware response system
+const CONVERSATION_CONTEXT = {
+  lastIntent: null,
+  userName: null,
+  reservationInProgress: false,
+  lastTopic: null
+};
+
+// Smart response generator with context
+const generateSmartResponse = (intent, message, context) => {
+  const lowerMsg = message.toLowerCase();
+  
+  // Check for specific concerns/issues
+  if (intent === 'complaint') {
+    return [
+      "I'm sorry to hear about your experience. �",
+      "Let me help resolve this issue for you right away.",
+      "Would you like me to connect you with a manager, or is there something specific I can help fix?"
+    ];
+  }
+  
+  if (intent === 'cancel') {
+    return [
+      "I can help you cancel or modify your booking. 📝",
+      "Are you looking to cancel a reservation or leave the queue?",
+      "Just let me know which one and I'll guide you through it!"
+    ];
+  }
+  
+  if (intent === 'reservation') {
+    // Check if they mentioned date/time/party size
+    const hasDate = /\d{1,2}\/\d{1,2}|tomorrow|today|next|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec/i.test(message);
+    const hasTime = /\d{1,2}:\d{2}|am|pm|noon|morning|evening/i.test(message);
+    const hasParty = /\d+\s*(people|person|guest|pax)/i.test(message);
+    
+    if (hasDate && hasTime && hasParty) {
+      return [
+        "Perfect! I have all the details for your reservation. 📅",
+        "Let me confirm: You want a table for the date and time you mentioned, right?",
+        "Click the 'Book a Table' button below to complete your reservation!"
+      ];
+    } else if (hasDate || hasTime || hasParty) {
+      const missing = [];
+      if (!hasDate) missing.push("date");
+      if (!hasTime) missing.push("time");
+      if (!hasParty) missing.push("party size");
+      
+      return [
+        `Great start! I see you mentioned some details. 👍`,
+        `I still need the ${missing.join(' and ')} to complete your reservation.`,
+        "What would those be?"
+      ];
+    }
+    
+    return [
+      "I'd love to help you make a reservation! 📅",
+      "To get started, I'll need:",
+      "• Date (e.g., today, tomorrow, or specific date)",
+      "• Time (e.g., 7:00 PM)",
+      "• Party size (e.g., 4 people)",
+      "What works for you?"
+    ];
+  }
+  
+  if (intent === 'queue') {
+    // Check if asking about current wait time
+    if (/how long|wait time|how many|current/i.test(lowerMsg)) {
+      return [
+        "Let me check the current queue status for you... 🔍",
+        "Right now there are about 8 parties ahead of you.",
+        "Estimated wait time: 20-25 minutes.",
+        "Would you like me to add you to the queue so you don't have to wait at the restaurant?"
+      ];
+    }
+    
+    return [
+      "I can help you join our virtual queue! 🐝",
+      "Just provide your party size and I'll add you to the line.",
+      "You'll get real-time updates on your position via SMS.",
+      "How many people are in your party?"
+    ];
+  }
+  
+  if (intent === 'menu') {
+    // Check for specific food queries
+    if (/chicken|spaghetti|burger|pie|drink|dessert/i.test(lowerMsg)) {
+      return [
+        "Great choice! 🍽️",
+        "That item is one of our best sellers!",
+        "Would you like to pre-order this when making your reservation?",
+        "Click 'View Menu' to see all our delicious options!"
+      ];
+    }
+    
+    return [
+      "Here's what our customers love most: 🌟",
+      "🥇 2pc Chicken Joy with Rice - ₱150",
+      "🥇 Jolly Spaghetti - ₱120", 
+      "🥇 Peach Mango Pie - ₱45",
+      "🥇 Yumburger - ₱85",
+      "Would you like to see the full menu or pre-order something?"
+    ];
+  }
+  
+  if (intent === 'payment') {
+    return [
+      "We accept multiple payment options! 💳",
+      "• GCash - Most popular, instant confirmation",
+      "• Maya - Quick and secure",
+      "• GrabPay - Earn GrabRewards",
+      "• Credit/Debit Card - Visa, Mastercard",
+      "• Cash - Pay at the counter",
+      "Which payment method would you prefer?"
+    ];
+  }
+  
+  if (intent === 'vip') {
+    return [
+      "You're currently a Silver Member! 🥈",
+      "Points: 350/500 (150 more to Gold!)",
+      "",
+      "Your current benefits:",
+      "⚡ Priority seating (skip 2 queue spots)",
+      "🎁 Free Peach Mango Pie on your birthday",
+      "",
+      "Gold benefits you'll unlock:",
+      "👑 10% discount on all orders",
+      "🍽️ Exclusive menu previews",
+      "Keep dining with us to level up!"
+    ];
+  }
+  
+  if (intent === 'hours') {
+    return [
+      "Our operating hours are:",
+      "📅 Monday - Friday: 9:00 AM - 10:00 PM",
+      "📅 Saturday - Sunday: 8:00 AM - 11:00 PM",
+      "📅 Holidays: 9:00 AM - 9:00 PM",
+      "",
+      "Peak hours are usually 12:00-2:00 PM and 6:00-8:00 PM",
+      "I recommend booking in advance during these times!"
+    ];
+  }
+  
+  if (intent === 'location') {
+    return [
+      "📍 Jollibee Main Branch",
+      "123 Main Street, City Center",
+      "Near the Central Park Mall",
+      "",
+      "Landmarks: Next to Starbucks, across from City Hall",
+      "Parking available at the mall (validated for diners)",
+      "",
+      "Need directions? I can help you find the best route!"
+    ];
+  }
+  
+  if (intent === 'help') {
+    return [
+      "Here's everything I can help you with! �",
+      "",
+      "📅 Reservations - Book a table in advance",
+      "🐝 Queue - Join our virtual waiting line",
+      "🍗 Menu - Browse food and pre-order",
+      "💳 Payment - Payment methods and processing",
+      "🏆 VIP - Check your loyalty status and points",
+      "⏰ Hours - Operating hours and peak times",
+      "📍 Location - Find us and get directions",
+      "",
+      "What would you like to know more about?"
+    ];
+  }
+  
+  if (intent === 'goodbye') {
+    return [
+      "You're welcome! 🌟",
+      "Thanks for choosing Jollibee!",
+      "Have a great day and we look forward to serving you! 🍗"
+    ];
+  }
+  
+  // Default contextual response
+  return [
+    "I'm here to help! 🤔",
+    "I can assist with reservations, queue, menu, payments, or VIP status.",
+    "What would you like to do? (Type 'help' for all options)"
+  ];
+};
+
+// Advanced intent detection with scoring
+function detectIntentAdvanced(message) {
+  const lower = message.toLowerCase();
+  const scores = {};
+  
+  // Score each intent based on keyword matches
+  for (const [intent, data] of Object.entries(INTENT_PATTERNS)) {
+    let score = 0;
+    
+    // Check keywords
+    for (const keyword of data.keywords) {
+      if (lower.includes(keyword)) {
+        score += data.weight;
+        // Bonus for exact word match (not substring)
+        const wordBoundary = new RegExp(`\\b${keyword}\\b`, 'i');
+        if (wordBoundary.test(lower)) {
+          score += 0.5;
+        }
+      }
+    }
+    
+    // Check phrases (higher weight)
+    for (const phrase of data.phrases) {
+      if (lower.includes(phrase)) {
+        score += data.weight * 2;
+      }
+    }
+    
+    scores[intent] = score;
+  }
+  
+  // Find highest scoring intent
+  const sorted = Object.entries(scores).sort((a, b) => b[1] - a[1]);
+  const [topIntent, topScore] = sorted[0];
+  
+  // Only return intent if score is meaningful
+  if (topScore >= 0.5) {
+    return topIntent;
+  }
+  
   return 'default';
 }
 
@@ -125,8 +345,8 @@ export default function AIChatBot() {
     setIsTyping(true);
     await new Promise(r => setTimeout(r, 1000));
 
-    const intent = detectIntent(userMessage);
-    const responses = MOCK_RESPONSES[intent] || MOCK_RESPONSES.default;
+    const intent = detectIntentAdvanced(userMessage);
+    const responses = generateSmartResponse(intent, userMessage, CONVERSATION_CONTEXT);
     
     setIsTyping(false);
     sendBotMessage(responses, 600);

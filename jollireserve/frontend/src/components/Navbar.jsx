@@ -9,7 +9,7 @@ export default function Navbar({ user, onLogout }) {
   const { dark, toggle } = useTheme();
   const [menuOpen, setMenuOpen] = useState(false);
 
-  const active    = (path) => loc.pathname === path ? "bg-[var(--red)] text-white" : "hover:bg-black/5";
+  const active    = (path) => loc.pathname === path ? "bg-[var(--red)] text-white" : "hover:bg-[var(--bg-subtle)]";
   const isAdmin   = user?.role === "admin";
   const isStaff   = user?.role === "staff";
   const showAdmin = isAdmin || isStaff;
@@ -26,138 +26,189 @@ export default function Navbar({ user, onLogout }) {
           <span className="text-[var(--red)]">Reserve</span>
         </div>
 
-        {/* Desktop nav links */}
-        <div className="ml-auto hidden md:flex items-center gap-2">
-          {/* Customers and guests see Home, Reservations, Queue */}
+        {/* Desktop nav links - ALL USERS see all main navigation */}
+        <div className="ml-auto hidden md:flex items-center gap-1">
+          {/* Main navigation for all users */}
+          <Link className={`px-4 py-2 rounded-full text-sm font-semibold transition-all duration-200 ${active("/")}`} to="/">Home</Link>
+          
           {!isAdmin && (
             <>
-              <Link className={`px-4 py-2 rounded-full text-sm font-semibold ${active("/")}`} to="/">Home</Link>
-              <Link className={`px-4 py-2 rounded-full text-sm font-semibold ${active("/reservations")}`} to="/reservations">Reservations</Link>
-              <Link className={`px-4 py-2 rounded-full text-sm font-semibold ${active("/queue")}`} to="/queue">Queue</Link>
+              <Link className={`px-4 py-2 rounded-full text-sm font-semibold transition-all duration-200 ${active("/reservations")}`} to="/reservations">Reservations</Link>
+              <Link className={`px-4 py-2 rounded-full text-sm font-semibold transition-all duration-200 ${active("/queue")}`} to="/queue">Queue</Link>
             </>
           )}
+          
           {/* Staff and Admin see operational links */}
-          {showAdmin && <Link className={`px-4 py-2 rounded-full text-sm font-semibold ${active("/tv")}`} to="/tv">TV</Link>}
-          {showAdmin && <Link className={`px-4 py-2 rounded-full text-sm font-semibold ${active("/scan")}`} to="/scan">Scan</Link>}
-          {showAdmin && <Link className={`px-4 py-2 rounded-full text-sm font-semibold ${active("/admin")}`} to="/admin">Admin</Link>}
+          {showAdmin && (
+            <>
+              <Link className={`px-4 py-2 rounded-full text-sm font-semibold transition-all duration-200 ${active("/tv")}`} to="/tv">TV</Link>
+              <Link className={`px-4 py-2 rounded-full text-sm font-semibold transition-all duration-200 ${active("/scan")}`} to="/scan">Scan</Link>
+              <Link className={`px-4 py-2 rounded-full text-sm font-semibold transition-all duration-200 ${active("/admin")}`} to="/admin">Admin</Link>
+            </>
+          )}
+          
+          {/* Profile link in menu for logged-in users */}
+          {user && (
+            <Link className={`px-4 py-2 rounded-full text-sm font-semibold transition-all duration-200 ${active("/profile")}`} to="/profile">Profile</Link>
+          )}
         </div>
 
-        {/* Desktop right */}
+        {/* Desktop right - SIMPLIFIED: No profile icon, clean layout */}
         <div className="hidden md:flex items-center gap-3">
-          <button className="theme-toggle" onClick={toggle} title={dark ? "Switch to light mode" : "Switch to dark mode"}>
+          {/* Theme Toggle */}
+          <button 
+            className="w-10 h-10 rounded-full flex items-center justify-center text-lg bg-[var(--bg-subtle)] hover:bg-[var(--bg-card)] transition-all duration-200 border border-[var(--border)]" 
+            onClick={toggle} 
+            title={dark ? "Switch to light mode" : "Switch to dark mode"}
+          >
             {dark ? "☀️" : "🌙"}
           </button>
+          
           {user ? (
             <>
-              {/* Profile Avatar Button */}
-              <Link 
-                to="/profile" 
-                className="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-br from-red-500 to-red-600 text-white shadow-lg hover:shadow-xl hover:scale-105 transition-all"
-                title="My Profile"
-              >
-                <span className="text-xl">👤</span>
-              </Link>
-              
-              {/* Desktop: Name + Logout */}
-              <span className="navbar-pill px-3 py-1 rounded-full bg-white/70 border border-black/10 text-sm hidden lg:inline">
+              {/* User Name Badge */}
+              <span className="px-3 py-1.5 rounded-full bg-[var(--bg-subtle)] border border-[var(--border)] text-sm font-medium text-[var(--text-main)]">
                 {user.name || user.email}
               </span>
-              <button className="btn btn-outline text-sm hidden md:inline" onClick={() => { onLogout(); navigate("/login"); }}>
+              
+              {/* Logout Button */}
+              <button 
+                className="px-4 py-2 rounded-full bg-[var(--red)] text-white text-sm font-semibold hover:bg-[var(--red-hover)] transition-all duration-200 shadow-md hover:shadow-lg" 
+                onClick={() => { onLogout(); navigate("/login"); }}
+              >
                 Logout
               </button>
             </>
           ) : (
             <>
-              <span className="navbar-pill px-3 py-1 rounded-full bg-white/70 border border-black/10 text-sm">Guest</span>
-              <Link className="btn btn-red" to="/login">Login / Register</Link>
+              <span className="px-3 py-1.5 rounded-full bg-[var(--bg-subtle)] border border-[var(--border)] text-sm font-medium">Guest</span>
+              <Link 
+                className="px-4 py-2 rounded-full bg-[var(--red)] text-white text-sm font-semibold hover:bg-[var(--red-hover)] transition-all duration-200 shadow-md hover:shadow-lg" 
+                to="/login"
+              >
+                Login
+              </Link>
             </>
           )}
         </div>
 
-        {/* Mobile right */}
+        {/* Mobile right - SIMPLIFIED: No profile icon */}
         <div className="ml-auto flex md:hidden items-center gap-2">
-          <button className="theme-toggle" onClick={toggle}>
+          {/* Theme Toggle */}
+          <button 
+            className="w-9 h-9 rounded-lg flex items-center justify-center text-lg bg-[var(--bg-subtle)] border border-[var(--border)]"
+            onClick={toggle}
+          >
             {dark ? "☀️" : "🌙"}
           </button>
-          {user && (
-            <Link 
-              to="/profile" 
-              className="flex items-center justify-center w-9 h-9 rounded-full bg-gradient-to-br from-red-500 to-red-600 text-white shadow-md"
-              title="My Profile"
-            >
-              <span className="text-lg">👤</span>
-            </Link>
-          )}
+          
+          {/* Mobile Menu Button */}
           <button
             onClick={() => setMenuOpen(!menuOpen)}
-            style={{
-              background: "var(--bg-card)",
-              border: "1px solid var(--border)",
-              borderRadius: "10px",
-              padding: "0.4rem 0.6rem",
-              cursor: "pointer",
-              color: "var(--text-main)",
-              fontSize: "1.2rem",
-              lineHeight: 1,
-            }}
+            className="w-10 h-10 rounded-lg flex items-center justify-center text-xl bg-[var(--bg-card)] border border-[var(--border)] text-[var(--text-main)] transition-all duration-200"
+            aria-label="Toggle menu"
           >
             {menuOpen ? "✕" : "☰"}
           </button>
         </div>
       </div>
 
-      {/* Mobile dropdown */}
+      {/* Mobile dropdown - IMPROVED: All menu items visible */}
       {menuOpen && (
-        <div
-          style={{
-            background: "var(--bg-card)",
-            borderTop: "1px solid var(--border-soft)",
-            borderBottom: "1px solid var(--border-soft)",
-            padding: "1rem",
-            display: "flex",
-            flexDirection: "column",
-            gap: "0.5rem",
-          }}
-          className="md:hidden"
-        >
-          {!isAdmin && (
-            <>
-              <Link className={`px-4 py-2 rounded-full text-sm font-semibold ${active("/")}`} to="/" onClick={() => setMenuOpen(false)}>Home</Link>
-              <Link className={`px-4 py-2 rounded-full text-sm font-semibold ${active("/reservations")}`} to="/reservations" onClick={() => setMenuOpen(false)}>Reservations</Link>
-              <Link className={`px-4 py-2 rounded-full text-sm font-semibold ${active("/queue")}`} to="/queue" onClick={() => setMenuOpen(false)}>Queue</Link>
-            </>
-          )}
-          {showAdmin && <Link className={`px-4 py-2 rounded-full text-sm font-semibold ${active("/tv")}`} to="/tv" onClick={() => setMenuOpen(false)}>TV</Link>}
-          {showAdmin && <Link className={`px-4 py-2 rounded-full text-sm font-semibold ${active("/scan")}`} to="/scan" onClick={() => setMenuOpen(false)}>Scan</Link>}
-          {showAdmin && <Link className={`px-4 py-2 rounded-full text-sm font-semibold ${active("/admin")}`} to="/admin" onClick={() => setMenuOpen(false)}>Admin</Link>}
+        <div className="md:hidden bg-[var(--bg-card)] border-t border-b border-[var(--border)] p-4 flex flex-col gap-2 shadow-lg">
+          {/* Main Navigation */}
+          <div className="space-y-1">
+            <p className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-2">Menu</p>
+            
+            <Link 
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 ${active("/")}`} 
+              to="/" 
+              onClick={() => setMenuOpen(false)}
+            >
+              <span>🏠</span> Home
+            </Link>
+            
+            {!isAdmin && (
+              <>
+                <Link 
+                  className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 ${active("/reservations")}`} 
+                  to="/reservations" 
+                  onClick={() => setMenuOpen(false)}
+                >
+                  <span>📅</span> Reservations
+                </Link>
+                <Link 
+                  className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 ${active("/queue")}`} 
+                  to="/queue" 
+                  onClick={() => setMenuOpen(false)}
+                >
+                  <span>🐝</span> Queue
+                </Link>
+              </>
+            )}
+            
+            {showAdmin && (
+              <>
+                <Link 
+                  className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 ${active("/tv")}`} 
+                  to="/tv" 
+                  onClick={() => setMenuOpen(false)}
+                >
+                  <span>📺</span> TV Display
+                </Link>
+                <Link 
+                  className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 ${active("/scan")}`} 
+                  to="/scan" 
+                  onClick={() => setMenuOpen(false)}
+                >
+                  <span>📷</span> Scan QR
+                </Link>
+                <Link 
+                  className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 ${active("/admin")}`} 
+                  to="/admin" 
+                  onClick={() => setMenuOpen(false)}
+                >
+                  <span>⚙️</span> Admin
+                </Link>
+              </>
+            )}
+          </div>
 
-          <div style={{ height: "1px", background: "var(--border-soft)", margin: "0.25rem 0" }} />
+          {/* Divider */}
+          <div className="h-px bg-[var(--border)] my-2" />
 
+          {/* User Section */}
           {user ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-              {/* Profile Section */}
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-2">Account</p>
+              
               <Link 
-                className="flex items-center gap-3 p-3 rounded-xl bg-gradient-to-r from-red-500 to-red-600 text-white" 
+                className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 ${active("/profile")}`} 
                 to="/profile" 
                 onClick={() => setMenuOpen(false)}
               >
-                <span className="text-2xl">👤</span>
-                <div>
-                  <div className="font-semibold">My Profile</div>
-                  <div className="text-xs opacity-80">{user.email}</div>
-                </div>
-                <span className="ml-auto">→</span>
+                <span>👤</span> My Profile
               </Link>
               
-              <button className="btn btn-outline w-full" onClick={() => { onLogout(); navigate("/login"); setMenuOpen(false); }}>
-                Logout
+              <button 
+                className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold w-full text-left text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-200" 
+                onClick={() => { onLogout(); navigate("/login"); setMenuOpen(false); }}
+              >
+                <span>🚪</span> Logout
               </button>
             </div>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-              <span className="navbar-pill px-3 py-2 rounded-full bg-white/70 border border-black/10 text-sm text-center">Guest</span>
-              <Link className="btn btn-red w-full text-center" to="/login" onClick={() => setMenuOpen(false)}>
-                Login / Register
+            <div className="space-y-2">
+              <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-[var(--bg-subtle)]">
+                <span>👋</span>
+                <span className="text-sm font-medium">Guest User</span>
+              </div>
+              <Link 
+                className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-[var(--red)] text-white text-sm font-semibold hover:bg-[var(--red-hover)] transition-all duration-200" 
+                to="/login" 
+                onClick={() => setMenuOpen(false)}
+              >
+                <span>🔑</span> Login / Register
               </Link>
             </div>
           )}
