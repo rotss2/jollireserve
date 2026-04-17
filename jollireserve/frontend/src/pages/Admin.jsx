@@ -463,9 +463,6 @@ export default function Admin({ user }) {
               </button>
             </div>
           </div>
-        </div>
-      )}
-
           <div className="grid md:grid-cols-2 gap-4">
             <div className="card p-5">
               <div className="font-black mb-3">Reservations (Last 7 Days)</div>
