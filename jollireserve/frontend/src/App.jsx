@@ -14,10 +14,8 @@ import TV from "./pages/TV";
 import QueueStatus from "./pages/Queuestatus";
 import Profile from "./pages/Profile";
 import Notifications from "./components/Notifications";
-import MusicPlayer from "./components/MusicPlayer";
 import AnnouncementBanner from "./components/AnnouncementBanner";
 import AIChatBot from "./components/AIChatBot";
-import { MusicProvider, useMusic } from "./context/MusicContext";
 import { clearToken } from "./lib/token";
 import { getMe } from "./lib/auth";
 
@@ -28,11 +26,9 @@ function AppInner() {
 
   const location = useLocation();
   const navigate = useNavigate();
-  const music = useMusic();
   const isTV = location.pathname === "/tv";
 
   function logout() {
-    music?.stopMusic();
     clearToken();
     setUser(null);
   }
@@ -95,8 +91,6 @@ function AppInner() {
       {!isTV && <Navbar user={user} onLogout={logout} />}
       <AnnouncementBanner />
 
-      <MusicPlayer />
-
       <Routes>
         <Route path="/" element={<Home user={user} />} />
         <Route path="/login" element={<Login onAuthed={setUser} />} />
@@ -154,9 +148,5 @@ function AppInner() {
 }
 
 export default function App() {
-  return (
-    <MusicProvider>
-      <AppInner />
-    </MusicProvider>
-  );
+  return <AppInner />;
 }
