@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect } from 'react';
-import { Link } from 'react-router-dom';
 
 // Enhanced AI Intent Detection System with scoring and context
 const INTENT_PATTERNS = {
@@ -321,7 +320,12 @@ export default function AIChatBot() {
   useEffect(() => {
     if (isOpen && !hasGreeted) {
       setHasGreeted(true);
-      sendBotMessage(MOCK_RESPONSES.greeting);
+      const greeting = [
+        "Hello! I'm JolliBot, your AI dining assistant! 🍗",
+        "I can help you book tables, check queue status, browse our menu, or answer any questions!",
+        "What would you like to do today?"
+      ];
+      sendBotMessage(greeting);
     }
   }, [isOpen, hasGreeted]);
 
