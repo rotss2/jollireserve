@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import * as api from "../lib/api";
 import Toast from "../components/Toast";
 
@@ -41,7 +41,57 @@ const NOTIFICATION_OPTIONS = [
   { key: "sms_reminders", label: "📱 SMS Reminders", desc: "Text before reservation" }
 ];
 
-export default function Profile({ user }) {
+// Status Badge Component with proper contrast
+const StatusBadge = ({ status }) => {
+  const styles = {
+    confirmed: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
+    cancelled: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
+    pending: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",
+    completed: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
+    waiting: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
+    called: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
+    seated: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+  };
+  
+  const normalized = status?.toLowerCase() || 'pending';
+  const style = styles[normalized] || styles.pending;
+  
+  return (
+    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${style}`}>
+      {status?.charAt(0).toUpperCase() + status?.slice(1)}
+    </span>
+  );
+};
+
+// Card Section Component
+const SectionCard = ({ title, icon, children, action }) => (
+  <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl overflow-hidden shadow-sm">
+    <div className="px-5 py-4 border-b border-[var(--border)] bg-[var(--bg-subtle)]/50 flex items-center justify-between">
+      <div className="flex items-center gap-2">
+        <span className="text-xl">{icon}</span>
+        <h3 className="font-bold text-[var(--text-main)]">{title}</h3>
+      </div>
+      {action && <div>{action}</div>}
+    </div>
+    <div className="p-5">
+      {children}
+    </div>
+  </div>
+);
+
+// Info Row Component
+const InfoRow = ({ label, value, icon }) => (
+  <div className="flex items-center justify-between py-3 border-b border-[var(--border)] last:border-0">
+    <div className="flex items-center gap-2 text-[var(--text-muted)]">
+      {icon && <span>{icon}</span>}
+      <span className="text-sm">{label}</span>
+    </div>
+    <span className="font-medium text-[var(--text-main)]">{value || "—"}</span>
+  </div>
+);
+
+export default function Profile({ user, onLogout }) {
+  const navigate = useNavigate();
   const [tab, setTab] = useState("overview");
   const [toast, setToast] = useState({ message: "", type: "success" });
   const [activity, setActivity] = useState([]);
@@ -272,197 +322,280 @@ export default function Profile({ user }) {
   }
 
   return (
-    <div className="mx-auto max-w-4xl px-4 pb-16 pt-4">
+    <div className="mx-auto max-w-5xl px-4 pb-16 pt-4">
       <Toast message={toast.message} type={toast.type} onClose={() => setToast({ message: "", type: "success" })} />
 
-      {/* Header */}
-      <div className="card p-4 md:p-6 mb-4" style={{ background: "linear-gradient(135deg, var(--red) 0%, #dc2626 100%)" }}>
-        <div className="flex flex-col sm:flex-row items-center sm:items-center gap-3 sm:gap-4 text-center sm:text-left">
-          <div style={{ width: 56, height: 56, borderRadius: "50%", background: "rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, flexShrink: 0 }}>
+      {/* ========== HEADER SECTION ========== */}
+      <div className="bg-gradient-to-r from-[var(--red)] to-[#dc2626] rounded-2xl p-6 mb-6 text-white shadow-lg">
+        <div className="flex flex-col sm:flex-row items-center gap-4">
+          <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center text-3xl flex-shrink-0">
             👤
           </div>
-          <div style={{ color: "#fff", minWidth: 0 }}>
-            <h1 className="text-lg sm:text-2xl font-black truncate">{user.name || user.email}</h1>
-            <p className="opacity-80 text-sm sm:text-base truncate">{user.email} • Member since {user.created_at?.slice(0, 10)}</p>
+          <div className="text-center sm:text-left flex-1 min-w-0">
+            <h1 className="text-xl sm:text-2xl font-bold truncate">{user.name || user.email}</h1>
+            <p className="text-white/80 text-sm truncate">{user.email}</p>
+            <p className="text-white/60 text-xs mt-1">Member since {user.created_at?.slice(0, 10)}</p>
+          </div>
+          <div className="flex gap-2">
+            <Link 
+              to="/reservations" 
+              className="px-4 py-2 bg-white/20 hover:bg-white/30 rounded-full text-sm font-medium transition-colors"
+            >
+              📅 Book
+            </Link>
+            <button 
+              onClick={() => { onLogout(); navigate("/login"); }}
+              className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-full text-sm font-medium transition-colors"
+            >
+              🚪 Logout
+            </button>
           </div>
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 sm:gap-3 mb-4">
+      {/* ========== STATS ROW ========== */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
         {[
-          { label: "Reservations", value: stats.totalReservations, icon: "📅" },
-          { label: "Upcoming", value: stats.upcomingReservations, icon: "📆" },
-          { label: "Queue", value: stats.totalQueueJoins, icon: "🐝" },
-          { label: "Logins", value: stats.totalLogins, icon: "🔑" },
-          { label: "Seating", value: SEATING_OPTIONS.find(s => s.value === stats.favoriteSeating)?.label?.split(' ')[1] || "Indoor", icon: "🪑" }
+          { label: "Reservations", value: stats.totalReservations, icon: "📅", color: "blue" },
+          { label: "Upcoming", value: stats.upcomingReservations, icon: "📆", color: "green" },
+          { label: "Queue Visits", value: stats.totalQueueJoins, icon: "🐝", color: "amber" },
+          { label: "Activity", value: activity.length, icon: "📋", color: "purple" }
         ].map(stat => (
-          <div key={stat.label} className="card p-2 sm:p-4 text-center">
-            <div className="text-xl sm:text-2xl mb-1">{stat.icon}</div>
-            <div className="text-lg sm:text-xl font-black">{stat.value}</div>
-            <div className="text-xs" style={{ color: "var(--text-muted)" }}>{stat.label}</div>
+          <div key={stat.label} className="bg-[var(--bg-card)] border border-[var(--border)] rounded-xl p-3 text-center shadow-sm">
+            <div className="text-2xl mb-1">{stat.icon}</div>
+            <div className="text-xl font-bold text-[var(--text-main)]">{stat.value}</div>
+            <div className="text-xs text-[var(--text-muted)]">{stat.label}</div>
           </div>
         ))}
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-2 mb-4 flex-wrap">
+      {/* ========== SIMPLIFIED NAVIGATION ========== */}
+      <div className="flex gap-2 mb-6 overflow-x-auto pb-2 scrollbar-hide">
         {[
-          { key: "overview", label: "📊 Overview" },
-          { key: "activity", label: "📋 Activity History" },
-          { key: "reservations", label: "📅 My Reservations" },
-          { key: "queue", label: "🐝 Queue History" },
-          { key: "settings", label: "⚙️ Preferences" }
+          { key: "overview", label: "🏠 Overview", desc: "Summary" },
+          { key: "activity", label: "📋 Activity", desc: "History" },
+          { key: "reservations", label: "📅 Reservations", desc: "Bookings" },
+          { key: "queue", label: "🐝 Queue", desc: "History" },
+          { key: "settings", label: "⚙️ Settings", desc: "Preferences" }
         ].map(t => (
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
-            className={`px-4 py-2 rounded-full text-sm font-semibold ${tab === t.key ? "bg-[var(--red)] text-white" : "bg-[var(--bg-card)] hover:bg-[var(--bg-subtle)]"}`}
+            className={`flex-shrink-0 px-4 py-3 rounded-xl text-left transition-all duration-200 min-w-[100px] ${
+              tab === t.key 
+                ? "bg-[var(--red)] text-white shadow-md" 
+                : "bg-[var(--bg-card)] border border-[var(--border)] hover:border-[var(--red)] hover:bg-[var(--bg-subtle)]"
+            }`}
           >
-            {t.label}
+            <div className="text-sm font-semibold">{t.label}</div>
+            <div className={`text-xs ${tab === t.key ? "text-white/70" : "text-[var(--text-muted)]"}`}>
+              {t.desc}
+            </div>
           </button>
         ))}
       </div>
 
-      {/* Tab Content */}
-      <div className="card p-5">
-        {loading ? (
-          <div className="text-center py-8">Loading...</div>
-        ) : (
-          <>
-            {tab === "overview" && (
-              <div>
-                <h2 className="font-black mb-4">Account Overview</h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="p-4" style={{ background: "var(--bg-subtle)", borderRadius: "0.75rem" }}>
-                    <div className="font-semibold mb-2">📅 Recent Reservations</div>
+      {/* ========== TAB CONTENT ========== */}
+      {loading ? (
+        <div className="flex items-center justify-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--red)]"></div>
+          <span className="ml-3 text-[var(--text-muted)]">Loading your data...</span>
+        </div>
+      ) : (
+        <>
+          {/* OVERVIEW TAB */}
+          {tab === "overview" && (
+            <div className="grid md:grid-cols-2 gap-4">
+              <SectionCard title="Recent Reservations" icon="📅" action={
+                reservations.length > 0 && (
+                  <Link to="/reservations" className="text-sm text-[var(--red)] hover:underline">View all</Link>
+                )
+              }>
+                {reservations.slice(0, 3).length > 0 ? (
+                  <div className="space-y-3">
                     {reservations.slice(0, 3).map(r => (
-                      <div key={r.id} className="text-sm mb-2 p-2" style={{ background: "var(--bg-card)", borderRadius: "0.5rem" }}>
-                        <div className="font-medium">{r.date} at {r.time}</div>
-                        <div style={{ color: "var(--text-muted)" }}>Table {r.table_name || "TBD"} • {r.party_size} guests</div>
+                      <div key={r.id} className="flex items-center justify-between p-3 bg-[var(--bg-subtle)] rounded-xl">
+                        <div>
+                          <div className="font-semibold text-[var(--text-main)]">{r.date} at {r.time}</div>
+                          <div className="text-sm text-[var(--text-muted)]">{r.party_size} guests • Table {r.table_name || "TBD"}</div>
+                        </div>
+                        <StatusBadge status={r.status} />
                       </div>
                     ))}
-                    {reservations.length === 0 && <div className="text-sm" style={{ color: "var(--text-muted)" }}>No reservations yet.</div>}
                   </div>
-                  <div className="p-4" style={{ background: "var(--bg-subtle)", borderRadius: "0.75rem" }}>
-                    <div className="font-semibold mb-2">📋 Recent Activity</div>
+                ) : (
+                  <div className="text-center py-6">
+                    <div className="text-4xl mb-2">📅</div>
+                    <p className="text-[var(--text-muted)] mb-3">No reservations yet</p>
+                    <Link to="/reservations" className="btn btn-primary btn-sm">Make Reservation</Link>
+                  </div>
+                )}
+              </SectionCard>
+
+              <SectionCard title="Recent Activity" icon="📋" action={
+                activity.length > 0 && (
+                  <button onClick={() => setTab("activity")} className="text-sm text-[var(--red)] hover:underline">View all</button>
+                )
+              }>
+                {activity.slice(0, 5).length > 0 ? (
+                  <div className="space-y-2">
                     {activity.slice(0, 5).map(a => (
-                      <div key={a.id} className="text-sm mb-2 flex items-center gap-2">
-                        <span>{activityIcons[a.action] || "📌"}</span>
-                        <span>{activityLabels[a.action] || a.action}</span>
-                        <span style={{ color: "var(--text-muted)", marginLeft: "auto" }}>{a.created_at?.slice(0, 16)}</span>
+                      <div key={a.id} className="flex items-center gap-3 py-2">
+                        <span className="text-xl">{activityIcons[a.action] || "📌"}</span>
+                        <div className="flex-1">
+                          <div className="text-sm font-medium text-[var(--text-main)]">{activityLabels[a.action] || a.action}</div>
+                          <div className="text-xs text-[var(--text-muted)]">{a.created_at?.slice(0, 16).replace('T', ' ')}</div>
+                        </div>
                       </div>
                     ))}
-                    {activity.length === 0 && <div className="text-sm" style={{ color: "var(--text-muted)" }}>No activity recorded.</div>}
+                  </div>
+                ) : (
+                  <div className="text-center py-6 text-[var(--text-muted)]">
+                    No recent activity
+                  </div>
+                )}
+              </SectionCard>
+
+              <SectionCard title="Quick Stats" icon="📊">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-3 bg-[var(--bg-subtle)] rounded-xl">
+                    <div className="text-xs text-[var(--text-muted)] uppercase tracking-wide mb-1">Favorite Seating</div>
+                    <div className="font-semibold text-[var(--text-main)]">
+                      {SEATING_OPTIONS.find(s => s.value === stats.favoriteSeating)?.label || "🪴 Indoor"}
+                    </div>
+                  </div>
+                  <div className="p-3 bg-[var(--bg-subtle)] rounded-xl">
+                    <div className="text-xs text-[var(--text-muted)] uppercase tracking-wide mb-1">Total Logins</div>
+                    <div className="font-semibold text-[var(--text-main)]">{stats.totalLogins}</div>
                   </div>
                 </div>
-              </div>
-            )}
+              </SectionCard>
 
-            {tab === "activity" && (
-              <div>
-                <h2 className="font-black mb-4">Activity History</h2>
-                <div style={{ maxHeight: 400, overflowY: "auto" }}>
+              <SectionCard title="Account Info" icon="👤" action={
+                <button onClick={() => setTab("settings")} className="text-sm text-[var(--red)] hover:underline">Edit</button>
+              }>
+                <div className="space-y-1">
+                  <InfoRow label="Display Name" value={profile.name} icon="👤" />
+                  <InfoRow label="Email" value={user.email} icon="📧" />
+                  <InfoRow label="Phone" value={profile.phone} icon="📱" />
+                </div>
+              </SectionCard>
+            </div>
+          )}
+
+          {/* ACTIVITY TAB */}
+          {tab === "activity" && (
+            <SectionCard title="Activity History" icon="📋">
+              {activity.length > 0 ? (
+                <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2">
                   {activity.map(a => (
-                    <div key={a.id} className="flex items-center gap-3 p-3 mb-2" style={{ background: "var(--bg-subtle)", borderRadius: "0.5rem" }}>
-                      <div style={{ fontSize: 20 }}>{activityIcons[a.action] || "📌"}</div>
-                      <div style={{ flex: 1 }}>
-                        <div className="font-medium">{activityLabels[a.action] || a.action}</div>
-                        <div className="text-xs" style={{ color: "var(--text-muted)" }}>
+                    <div key={a.id} className="flex items-start gap-3 p-4 bg-[var(--bg-subtle)] rounded-xl">
+                      <div className="text-2xl">{activityIcons[a.action] || "📌"}</div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-[var(--text-main)]">{activityLabels[a.action] || a.action}</div>
+                        <div className="text-xs text-[var(--text-muted)] mt-1">
                           {a.created_at?.slice(0, 16).replace('T', ' ')}
                         </div>
                         {a.details && (
-                          <div className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
+                          <div className="text-xs text-[var(--text-muted)] mt-2 p-2 bg-[var(--bg-card)] rounded">
                             {JSON.stringify(a.details)}
                           </div>
                         )}
                       </div>
                     </div>
                   ))}
-                  {activity.length === 0 && <div className="text-center py-8" style={{ color: "var(--text-muted)" }}>No activity recorded yet.</div>}
                 </div>
-              </div>
-            )}
+              ) : (
+                <div className="text-center py-12">
+                  <div className="text-4xl mb-3">📋</div>
+                  <p className="text-[var(--text-muted)]">No activity recorded yet</p>
+                </div>
+              )}
+            </SectionCard>
+          )}
 
-            {tab === "reservations" && (
-              <div>
-                <div className="flex justify-between items-center mb-4">
-                  <h2 className="font-black">My Reservations</h2>
-                  {reservations.length > 0 && (
-                    <button onClick={downloadData} className="btn btn-outline text-sm">
-                      📥 Export All Data
-                    </button>
-                  )}
-                </div>
-                {reservations.map(r => (
-                  <div key={r.id} className="p-4 mb-3" style={{ background: "var(--bg-subtle)", borderRadius: "0.75rem" }}>
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <div className="font-semibold">{r.date} at {r.time}</div>
-                        <div className="text-sm" style={{ color: "var(--text-muted)" }}>
-                          {r.party_size} guests • Table {r.table_name || "TBD"}
-                          {r.area_pref && ` • ${r.area_pref}`}
-                        </div>
-                        {r.special_requests && (
-                          <div className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>
-                            📝 {r.special_requests}
+          {/* RESERVATIONS TAB */}
+          {tab === "reservations" && (
+            <SectionCard 
+              title="My Reservations" 
+              icon="📅" 
+              action={
+                reservations.length > 0 && (
+                  <button onClick={downloadData} className="btn btn-outline btn-sm">📥 Export</button>
+                )
+              }
+            >
+              {reservations.length > 0 ? (
+                <div className="space-y-3">
+                  {reservations.map(r => (
+                    <div key={r.id} className="p-4 bg-[var(--bg-subtle)] rounded-xl">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-semibold text-[var(--text-main)]">{r.date} at {r.time}</span>
+                            <StatusBadge status={r.status} />
                           </div>
-                        )}
-                      </div>
-                      <div className="flex flex-col items-end gap-2">
-                        <span className={`px-2 py-1 rounded text-xs ${
-                          r.status === "confirmed" ? "bg-green-100 text-green-700" :
-                          r.status === "cancelled" ? "bg-red-100 text-red-700" :
-                          "bg-gray-100 text-gray-700"
-                        }`}>
-                          {r.status}
-                        </span>
+                          <div className="text-sm text-[var(--text-muted)] mt-1">
+                            {r.party_size} guests • Table {r.table_name || "TBD"}
+                            {r.area_pref && ` • ${r.area_pref}`}
+                          </div>
+                          {r.special_requests && (
+                            <div className="text-sm text-[var(--text-muted)] mt-2 flex items-center gap-1">
+                              <span>📝</span> {r.special_requests}
+                            </div>
+                          )}
+                        </div>
                         {r.status === "completed" && (
                           <button 
                             onClick={() => downloadReceipt(r)}
-                            className="text-xs px-2 py-1 rounded bg-blue-100 text-blue-700 hover:bg-blue-200"
+                            className="btn btn-secondary btn-sm flex-shrink-0"
                           >
                             🧾 Receipt
                           </button>
                         )}
                       </div>
                     </div>
-                  </div>
-                ))}
-                {reservations.length === 0 && (
-                  <div className="text-center py-8">
-                    <div className="text-4xl mb-2">📅</div>
-                    <p style={{ color: "var(--text-muted)" }}>No reservations yet.</p>
-                    <Link to="/reservations" className="btn btn-red mt-2 inline-block">Make a Reservation</Link>
-                  </div>
-                )}
-              </div>
-            )}
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <div className="text-4xl mb-3">📅</div>
+                  <p className="text-[var(--text-muted)] mb-4">No reservations yet</p>
+                  <Link to="/reservations" className="btn btn-primary">Make a Reservation</Link>
+                </div>
+              )}
+            </SectionCard>
+          )}
 
-            {tab === "queue" && (
-              <div>
-                <h2 className="font-black mb-4">🐝 Queue History</h2>
-                <div style={{ maxHeight: 500, overflowY: "auto" }}>
+          {/* QUEUE TAB */}
+          {tab === "queue" && (
+            <SectionCard title="Queue History" icon="🐝">
+              {queueHistory.length > 0 ? (
+                <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2">
                   {queueHistory.map((q, idx) => (
-                    <div key={q.id || idx} className="p-4 mb-3" style={{ background: "var(--bg-subtle)", borderRadius: "0.75rem", borderLeft: `4px solid ${q.status === 'seated' ? '#10b981' : q.status === 'called' ? '#f59e0b' : '#3b82f6'}` }}>
-                      <div className="flex justify-between items-start">
+                    <div 
+                      key={q.id || idx} 
+                      className="p-4 bg-[var(--bg-subtle)] rounded-xl border-l-4 border-l-blue-500"
+                      style={{ borderLeftColor: q.status === 'seated' ? '#10b981' : q.status === 'called' ? '#f59e0b' : '#3b82f6' }}
+                    >
+                      <div className="flex items-start justify-between">
                         <div>
-                          <div className="font-semibold flex items-center gap-2">
-                            #{q.queue_number} • {q.party_size} guests
-                            {q.status === 'seated' && <span className="text-green-600">✅ Seated</span>}
-                            {q.status === 'called' && <span className="text-amber-600">🔔 Called</span>}
-                            {q.status === 'waiting' && <span className="text-blue-600">⏳ Waiting</span>}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-semibold text-[var(--text-main)]">#{q.queue_number}</span>
+                            <span className="text-[var(--text-muted)]">•</span>
+                            <span className="text-[var(--text-muted)]">{q.party_size} guests</span>
+                            <StatusBadge status={q.status} />
                           </div>
-                          <div className="text-sm mt-1" style={{ color: "var(--text-muted)" }}>
+                          <div className="text-sm text-[var(--text-muted)] mt-2">
                             Joined: {q.joined_at?.slice(0, 16).replace('T', ' ')}
                           </div>
                           {q.seated_at && (
-                            <div className="text-sm" style={{ color: "var(--text-muted)" }}>
+                            <div className="text-sm text-[var(--text-muted)]">
                               Seated: {q.seated_at?.slice(0, 16).replace('T', ' ')}
                             </div>
                           )}
                           {q.table_name && (
-                            <div className="text-sm font-medium mt-1">
+                            <div className="text-sm font-medium text-[var(--text-main)] mt-2">
                               🪑 Table: {q.table_name}
                             </div>
                           )}
@@ -473,203 +606,205 @@ export default function Profile({ user }) {
                       </div>
                     </div>
                   ))}
-                  {queueHistory.length === 0 && (
-                    <div className="text-center py-8">
-                      <div className="text-4xl mb-2">🐝</div>
-                      <p style={{ color: "var(--text-muted)" }}>No queue history yet.</p>
-                      <Link to="/queue" className="btn btn-red mt-2 inline-block">Join Queue</Link>
-                    </div>
-                  )}
                 </div>
-              </div>
-            )}
-
-            {tab === "settings" && (
-              <div>
-                <div className="flex justify-between items-center mb-4">
-                  <h2 className="font-black">⚙️ Customize Your Experience</h2>
-                  {!editMode && (
-                    <button className="btn btn-red text-sm" onClick={() => setEditMode(true)}>
-                      ✏️ Edit Preferences
-                    </button>
-                  )}
+              ) : (
+                <div className="text-center py-12">
+                  <div className="text-4xl mb-3">🐝</div>
+                  <p className="text-[var(--text-muted)] mb-4">No queue history yet</p>
+                  <Link to="/queue" className="btn btn-primary">Join Queue</Link>
                 </div>
+              )}
+            </SectionCard>
+          )}
 
-                {!editMode ? (
-                  <div className="space-y-4">
-                    {/* Profile Summary */}
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="p-4" style={{ background: "var(--bg-subtle)", borderRadius: "0.75rem" }}>
-                        <div className="text-xs mb-1" style={{ color: "var(--text-muted)" }}>👤 Display Name</div>
-                        <div className="font-medium">{profile.name || "Not set"}</div>
-                      </div>
-                      <div className="p-4" style={{ background: "var(--bg-subtle)", borderRadius: "0.75rem" }}>
-                        <div className="text-xs mb-1" style={{ color: "var(--text-muted)" }}>📱 Phone</div>
-                        <div className="font-medium">{profile.phone || "Not set"}</div>
-                      </div>
+          {/* SETTINGS TAB */}
+          {tab === "settings" && (
+            <div className="space-y-4">
+              {!editMode ? (
+                <>
+                  <SectionCard 
+                    title="Profile Information" 
+                    icon="👤"
+                    action={<button onClick={() => setEditMode(true)} className="btn btn-primary btn-sm">✏️ Edit</button>}
+                  >
+                    <div className="space-y-1">
+                      <InfoRow label="Display Name" value={profile.name || "Not set"} />
+                      <InfoRow label="Email" value={user.email} />
+                      <InfoRow label="Phone" value={profile.phone || "Not set"} />
                     </div>
+                  </SectionCard>
 
-                    {/* Dining Preferences */}
-                    <div className="p-4" style={{ background: "var(--bg-subtle)", borderRadius: "0.75rem" }}>
-                      <h3 className="font-semibold mb-3">🍽️ Dining Preferences</h3>
-                      <div className="grid grid-cols-2 gap-3 text-sm">
-                        <div>
-                          <span style={{ color: "var(--text-muted)" }}>Default Party: </span>
-                          <span className="font-medium">{profile.preferences.default_party_size} people</span>
+                  <SectionCard title="Dining Preferences" icon="🍽️">
+                    <div className="grid sm:grid-cols-2 gap-4">
+                      <div className="p-3 bg-[var(--bg-subtle)] rounded-xl">
+                        <div className="text-xs text-[var(--text-muted)] uppercase tracking-wide mb-1">Default Party Size</div>
+                        <div className="font-semibold text-[var(--text-main)]">{profile.preferences.default_party_size} people</div>
+                      </div>
+                      <div className="p-3 bg-[var(--bg-subtle)] rounded-xl">
+                        <div className="text-xs text-[var(--text-muted)] uppercase tracking-wide mb-1">Preferred Seating</div>
+                        <div className="font-semibold text-[var(--text-main)]">
+                          {SEATING_OPTIONS.find(s => s.value === profile.preferences.seating_preference)?.label || "🪴 Indoor"}
                         </div>
-                        <div>
-                          <span style={{ color: "var(--text-muted)" }}>Seating: </span>
-                          <span className="font-medium">
-                            {SEATING_OPTIONS.find(s => s.value === profile.preferences.seating_preference)?.label}
+                      </div>
+                    </div>
+                    {profile.preferences.dietary_restrictions && (
+                      <div className="mt-4 p-3 bg-[var(--bg-subtle)] rounded-xl">
+                        <div className="text-xs text-[var(--text-muted)] uppercase tracking-wide mb-1">Dietary Restrictions</div>
+                        <div className="text-[var(--text-main)]">{profile.preferences.dietary_restrictions}</div>
+                      </div>
+                    )}
+                    {profile.preferences.special_occasions && (
+                      <div className="mt-3 p-3 bg-[var(--bg-subtle)] rounded-xl">
+                        <div className="text-xs text-[var(--text-muted)] uppercase tracking-wide mb-1">Special Occasions</div>
+                        <div className="text-[var(--text-main)]">{profile.preferences.special_occasions}</div>
+                      </div>
+                    )}
+                  </SectionCard>
+
+                  <SectionCard title="Notifications" icon="🔔">
+                    <div className="space-y-3">
+                      {NOTIFICATION_OPTIONS.map(opt => (
+                        <div key={opt.key} className="flex items-center justify-between p-3 bg-[var(--bg-subtle)] rounded-xl">
+                          <div>
+                            <div className="font-medium text-[var(--text-main)]">{opt.label}</div>
+                            <div className="text-xs text-[var(--text-muted)]">{opt.desc}</div>
+                          </div>
+                          <span className={`text-xl ${profile.preferences.notifications?.[opt.key] ? "text-green-500" : "text-gray-400"}`}>
+                            {profile.preferences.notifications?.[opt.key] ? "✅" : "⭕"}
                           </span>
                         </div>
-                        {profile.preferences.dietary_restrictions && (
-                          <div className="col-span-2">
-                            <span style={{ color: "var(--text-muted)" }}>Dietary Needs: </span>
-                            <span className="font-medium">{profile.preferences.dietary_restrictions}</span>
-                          </div>
-                        )}
-                        {profile.preferences.special_occasions && (
-                          <div className="col-span-2">
-                            <span style={{ color: "var(--text-muted)" }}>Special Occasions: </span>
-                            <span className="font-medium">{profile.preferences.special_occasions}</span>
-                          </div>
-                        )}
-                      </div>
+                      ))}
                     </div>
+                  </SectionCard>
 
-                    {/* Notifications */}
-                    <div className="p-4" style={{ background: "var(--bg-subtle)", borderRadius: "0.75rem" }}>
-                      <h3 className="font-semibold mb-3">🔔 Notification Settings</h3>
-                      <div className="space-y-2 text-sm">
-                        {NOTIFICATION_OPTIONS.map(opt => (
-                          <div key={opt.key} className="flex items-center gap-2">
-                            <span className={profile.preferences.notifications?.[opt.key] ? "text-green-600" : "text-gray-400"}>
-                              {profile.preferences.notifications?.[opt.key] ? "✅" : "⭕"}
-                            </span>
-                            <span>{opt.label}</span>
-                          </div>
-                        ))}
+                  <SectionCard title="Security" icon="🔒">
+                    <div className="flex items-center justify-between p-4 bg-[var(--bg-subtle)] rounded-xl">
+                      <div>
+                        <div className="font-semibold text-[var(--text-main)]">Password</div>
+                        <div className="text-sm text-[var(--text-muted)]">Change your account password</div>
                       </div>
+                      <button onClick={openPasswordModal} className="btn btn-outline btn-sm">Change</button>
                     </div>
-
-                    {/* Security */}
-                    <div className="flex gap-2">
-                      <button className="btn btn-outline" onClick={openPasswordModal}>🔒 Change Password</button>
-                    </div>
-                  </div>
-                ) : (
+                  </SectionCard>
+                </>
+              ) : (
+                <SectionCard title="Edit Preferences" icon="✏️">
                   <div className="space-y-6">
-                    {/* Section Tabs */}
-                    <div className="flex gap-2 border-b pb-2">
+                    {/* Edit Mode Tabs */}
+                    <div className="flex gap-2 border-b border-[var(--border)] pb-3">
                       {[
-                        { key: "basic", label: "👤 Basic Info" },
+                        { key: "basic", label: "👤 Basic" },
                         { key: "dining", label: "🍽️ Dining" },
-                        { key: "notifications", label: "🔔 Notifications" }
+                        { key: "notifications", label: "🔔 Alerts" }
                       ].map(s => (
                         <button
                           key={s.key}
                           onClick={() => setActiveSection(s.key)}
-                          className={`px-3 py-1 text-sm rounded ${activeSection === s.key ? "bg-[var(--red)] text-white" : "hover:bg-[var(--bg-subtle)]"}`}
+                          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                            activeSection === s.key 
+                              ? "bg-[var(--red)] text-white" 
+                              : "bg-[var(--bg-subtle)] text-[var(--text-muted)] hover:text-[var(--text-main)]"
+                          }`}
                         >
                           {s.label}
                         </button>
                       ))}
                     </div>
 
-                    {/* Basic Info Section */}
+                    {/* Basic Info */}
                     {activeSection === "basic" && (
                       <div className="space-y-4">
                         <div>
-                          <label className="text-sm font-medium">Display Name</label>
+                          <label className="block text-sm font-medium text-[var(--text-main)] mb-2">Display Name</label>
                           <input
                             type="text"
                             value={profile.name}
                             onChange={e => setProfile({ ...profile, name: e.target.value })}
-                            className="input w-full mt-1"
+                            className="input w-full"
                             placeholder="How should we call you?"
                           />
                         </div>
                         <div>
-                          <label className="text-sm font-medium">Phone Number</label>
+                          <label className="block text-sm font-medium text-[var(--text-main)] mb-2">Phone Number</label>
                           <input
                             type="tel"
                             value={profile.phone}
                             onChange={e => setProfile({ ...profile, phone: e.target.value })}
-                            className="input w-full mt-1"
+                            className="input w-full"
                             placeholder="For SMS notifications"
                           />
                         </div>
                       </div>
                     )}
 
-                    {/* Dining Preferences Section */}
+                    {/* Dining Preferences */}
                     {activeSection === "dining" && (
                       <div className="space-y-4">
                         <div>
-                          <label className="text-sm font-medium">Default Party Size</label>
-                          <div className="flex items-center gap-3 mt-1">
-                            <input
-                              type="range"
-                              min="1"
-                              max="20"
-                              value={profile.preferences.default_party_size}
-                              onChange={e => setProfile({ ...profile, preferences: { ...profile.preferences, default_party_size: Number(e.target.value) } })}
-                              className="flex-1"
-                            />
-                            <span className="font-bold w-8 text-center">{profile.preferences.default_party_size}</span>
+                          <label className="block text-sm font-medium text-[var(--text-main)] mb-3">Default Party Size: {profile.preferences.default_party_size}</label>
+                          <input
+                            type="range"
+                            min="1"
+                            max="20"
+                            value={profile.preferences.default_party_size}
+                            onChange={e => setProfile({ ...profile, preferences: { ...profile.preferences, default_party_size: Number(e.target.value) } })}
+                            className="w-full accent-[var(--red)]"
+                          />
+                          <div className="flex justify-between text-xs text-[var(--text-muted)] mt-1">
+                            <span>1</span>
+                            <span>20</span>
                           </div>
                         </div>
 
                         <div>
-                          <label className="text-sm font-medium">Preferred Seating</label>
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2">
+                          <label className="block text-sm font-medium text-[var(--text-main)] mb-3">Preferred Seating</label>
+                          <div className="grid sm:grid-cols-3 gap-3">
                             {SEATING_OPTIONS.map(opt => (
                               <button
                                 key={opt.value}
                                 onClick={() => setProfile({ ...profile, preferences: { ...profile.preferences, seating_preference: opt.value } })}
-                                className={`p-3 text-left rounded-lg border-2 transition ${
+                                className={`p-4 rounded-xl border-2 text-left transition-all ${
                                   profile.preferences.seating_preference === opt.value 
-                                    ? "border-[var(--red)] bg-red-50" 
-                                    : "border-gray-200 hover:border-gray-300"
+                                    ? "border-[var(--red)] bg-[var(--red)]/5" 
+                                    : "border-[var(--border)] hover:border-[var(--red)]/50"
                                 }`}
                               >
-                                <div className="font-medium text-sm sm:text-base">{opt.label}</div>
-                                <div className="text-xs text-gray-500">{opt.desc}</div>
+                                <div className="font-medium text-[var(--text-main)]">{opt.label}</div>
+                                <div className="text-xs text-[var(--text-muted)] mt-1">{opt.desc}</div>
                               </button>
                             ))}
                           </div>
                         </div>
 
                         <div>
-                          <label className="text-sm font-medium">Dietary Restrictions / Allergies</label>
+                          <label className="block text-sm font-medium text-[var(--text-main)] mb-2">Dietary Restrictions</label>
                           <textarea
                             value={profile.preferences.dietary_restrictions}
                             onChange={e => setProfile({ ...profile, preferences: { ...profile.preferences, dietary_restrictions: e.target.value } })}
-                            className="input w-full mt-1"
+                            className="input w-full"
                             rows="2"
                             placeholder="e.g., Vegetarian, Gluten-free, Nut allergy..."
                           />
                         </div>
 
                         <div>
-                          <label className="text-sm font-medium">Special Occasions</label>
+                          <label className="block text-sm font-medium text-[var(--text-main)] mb-2">Special Occasions</label>
                           <textarea
                             value={profile.preferences.special_occasions}
                             onChange={e => setProfile({ ...profile, preferences: { ...profile.preferences, special_occasions: e.target.value } })}
-                            className="input w-full mt-1"
+                            className="input w-full"
                             rows="2"
-                            placeholder="e.g., Birthday, Anniversary, Date night..."
+                            placeholder="e.g., Birthday, Anniversary..."
                           />
                         </div>
                       </div>
                     )}
 
-                    {/* Notifications Section */}
+                    {/* Notifications */}
                     {activeSection === "notifications" && (
                       <div className="space-y-3">
                         {NOTIFICATION_OPTIONS.map(opt => (
-                          <label key={opt.key} className="flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50 cursor-pointer">
+                          <label key={opt.key} className="flex items-start gap-4 p-4 bg-[var(--bg-subtle)] rounded-xl cursor-pointer hover:bg-[var(--bg-subtle)]/80 transition-colors">
                             <input
                               type="checkbox"
                               checked={profile.preferences.notifications?.[opt.key] || false}
@@ -680,124 +815,97 @@ export default function Profile({ user }) {
                                   notifications: { ...profile.preferences.notifications, [opt.key]: e.target.checked }
                                 }
                               })}
-                              className="mt-1"
+                              className="mt-1 w-4 h-4 accent-[var(--red)]"
                             />
-                            <div>
-                              <div className="font-medium">{opt.label}</div>
-                              <div className="text-sm text-gray-500">{opt.desc}</div>
+                            <div className="flex-1">
+                              <div className="font-medium text-[var(--text-main)]">{opt.label}</div>
+                              <div className="text-sm text-[var(--text-muted)]">{opt.desc}</div>
                             </div>
                           </label>
                         ))}
                       </div>
                     )}
 
-                    <div className="flex gap-2 pt-4 border-t">
-                      <button className="btn btn-red" onClick={saveProfile}>💾 Save All Changes</button>
+                    <div className="flex gap-3 pt-4 border-t border-[var(--border)]">
+                      <button className="btn btn-primary flex-1" onClick={saveProfile}>💾 Save Changes</button>
                       <button className="btn btn-outline" onClick={() => { setEditMode(false); setActiveSection("basic"); }}>Cancel</button>
                     </div>
                   </div>
-                )}
-              </div>
-            )}
-          </>
-        )}
-      </div>
+                </SectionCard>
+              )}
+            </div>
+          )}
+        </>
+      )}
 
-      {/* Password Change Modal */}
+      {/* Password Modal */}
       {showPasswordModal && (
-        <div style={{
-          position: "fixed",
-          top: 0, left: 0, right: 0, bottom: 0,
-          background: "rgba(0,0,0,0.6)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          zIndex: 1000,
-          padding: "1rem"
-        }} onClick={closePasswordModal}>
-          <div 
-            style={{
-              background: "var(--bg-card)",
-              borderRadius: "1rem",
-              padding: "1.5rem",
-              maxWidth: "400px",
-              width: "100%",
-              boxShadow: "0 25px 50px -12px rgba(0,0,0,0.25)"
-            }}
-            onClick={e => e.stopPropagation()}
-          >
-            {/* Header */}
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={closePasswordModal}>
+          <div className="bg-[var(--bg-card)] rounded-2xl p-6 max-w-md w-full shadow-2xl" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold text-lg">🔒 Change Password</h3>
-              <button onClick={closePasswordModal} className="text-2xl hover:opacity-70">×</button>
+              <h3 className="font-bold text-xl text-[var(--text-main)]">🔒 Change Password</h3>
+              <button onClick={closePasswordModal} className="text-2xl text-[var(--text-muted)] hover:text-[var(--text-main)]">×</button>
             </div>
 
-            {/* Step: Request OTP */}
             {passwordStep === "request" && (
               <div className="space-y-4">
-                <p className="text-sm" style={{ color: "var(--text-muted)" }}>
-                  For your security, we'll send a verification code to your email <strong>{user?.email}</strong> before you can change your password.
+                <p className="text-[var(--text-muted)]">
+                  We'll send a verification code to <strong className="text-[var(--text-main)]">{user?.email}</strong>
                 </p>
                 <button 
-                  className="btn btn-red w-full"
+                  className="btn btn-primary w-full" 
                   onClick={requestPasswordOTP}
                   disabled={passwordLoading}
                 >
-                  {passwordLoading ? "Sending..." : "📧 Send Verification Code"}
+                  {passwordLoading ? "Sending..." : "📧 Send Code"}
                 </button>
               </div>
             )}
 
-            {/* Step: Verify OTP + New Password */}
             {passwordStep === "verify" && (
               <div className="space-y-4">
                 <div>
-                  <label className="text-sm font-medium">Verification Code</label>
+                  <label className="block text-sm font-medium text-[var(--text-main)] mb-2">Verification Code</label>
                   <input
                     type="text"
                     value={otpCode}
                     onChange={e => setOtpCode(e.target.value)}
-                    placeholder="Enter 6-digit code"
-                    className="input w-full mt-1 text-center text-lg tracking-widest"
+                    placeholder="000000"
+                    className="input w-full text-center text-xl tracking-[0.5em]"
                     maxLength={6}
                   />
-                  <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
-                    Code sent to {user?.email}
-                  </p>
+                  <p className="text-xs text-[var(--text-muted)] mt-1">Check your email</p>
                 </div>
-
                 <div>
-                  <label className="text-sm font-medium">New Password</label>
+                  <label className="block text-sm font-medium text-[var(--text-main)] mb-2">New Password</label>
                   <input
                     type="password"
                     value={newPassword}
                     onChange={e => setNewPassword(e.target.value)}
                     placeholder="Min 6 characters"
-                    className="input w-full mt-1"
+                    className="input w-full"
                   />
                 </div>
-
                 <div>
-                  <label className="text-sm font-medium">Confirm New Password</label>
+                  <label className="block text-sm font-medium text-[var(--text-main)] mb-2">Confirm Password</label>
                   <input
                     type="password"
                     value={confirmPassword}
                     onChange={e => setConfirmPassword(e.target.value)}
                     placeholder="Re-enter password"
-                    className="input w-full mt-1"
+                    className="input w-full"
                   />
                 </div>
-
                 <div className="flex gap-2">
                   <button 
-                    className="btn btn-red flex-1"
+                    className="btn btn-primary flex-1" 
                     onClick={submitPasswordChange}
                     disabled={passwordLoading}
                   >
-                    {passwordLoading ? "Updating..." : "✅ Change Password"}
+                    {passwordLoading ? "Updating..." : "✅ Change"}
                   </button>
                   <button 
-                    className="btn btn-outline"
+                    className="btn btn-outline" 
                     onClick={() => setPasswordStep("request")}
                     disabled={passwordLoading}
                   >
@@ -807,14 +915,11 @@ export default function Profile({ user }) {
               </div>
             )}
 
-            {/* Step: Success */}
             {passwordStep === "success" && (
               <div className="text-center py-4">
                 <div className="text-5xl mb-3">✅</div>
-                <h4 className="font-bold text-lg mb-2">Password Changed!</h4>
-                <p className="text-sm" style={{ color: "var(--text-muted)" }}>
-                  Your password has been updated successfully.
-                </p>
+                <h4 className="font-bold text-lg text-[var(--text-main)] mb-2">Password Changed!</h4>
+                <p className="text-[var(--text-muted)]">Your password has been updated successfully.</p>
               </div>
             )}
           </div>
