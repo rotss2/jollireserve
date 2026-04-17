@@ -23,6 +23,23 @@ export default function Queue({ user }) {
   async function load() {
     const data = await api.queueActive();
     setEntries(data.entries || []);
+    
+    // Check if user already has an active queue entry
+    if (user?.email) {
+      const myActiveEntry = data.entries?.find(e => 
+        e.email === user.email && 
+        (e.status === "waiting" || e.status === "called")
+      );
+      if (myActiveEntry) {
+        setMyEntry(myActiveEntry);
+        // Generate QR for existing entry
+        const qr = await QRCode.toDataURL(
+          `${window.location.origin}/queue-status?id=${myActiveEntry.id}`,
+          { width: 200, margin: 2 }
+        );
+        setQrDataUrl(qr);
+      }
+    }
   }
 
   useEffect(() => {
@@ -32,7 +49,7 @@ export default function Queue({ user }) {
       if (msg.type === "queue:changed") load();
     });
     return () => off();
-  }, []);
+  }, [user]);
 
   // Validate party size in real-time
   useEffect(() => {
@@ -155,69 +172,128 @@ export default function Queue({ user }) {
       <div className="grid lg:grid-cols-2 gap-6">
         {/* Left Column: Join Form */}
         <div className="space-y-6">
-          {/* Main Join Card */}
-          <div className="card card-large">
-            <div className="flex items-center gap-3 mb-6">
-              <div 
-                className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl"
-                style={{ background: "rgba(200, 0, 10, 0.1)" }}
-              >
-                🐝
-              </div>
-              <div>
-                <h2 className="text-xl font-bold">Join the Queue</h2>
-                <p className="text-sm" style={{ color: "var(--text-muted)" }}>
-                  Walk-in guests welcome!
-                </p>
-              </div>
-            </div>
-
-            {/* Bee mascot */}
-            <div className="flex justify-center mb-6">
-              <BeeMascot position={myPosition} status={myStatus} />
-            </div>
-
-            {/* Form */}
-            <div className="space-y-4">
-              {!user && (
-                <div className="form-group mb-0">
-                  <label className="form-label">Your Name</label>
-                  <input
-                    className="input"
-                    placeholder="Enter your name (optional)"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                  />
+          {/* Main Join Card - Show Already in Queue if applicable */}
+          {myEntry ? (
+            <div className="card card-large card-success">
+              <div className="flex items-center gap-3 mb-6">
+                <div 
+                  className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl bg-green-100 dark:bg-green-900/30"
+                >
+                  ✅
                 </div>
-              )}
-              
-              <div className="form-group mb-0">
-                <label className="form-label">Party Size</label>
-                <input
-                  className={`input ${partyError ? "input-error" : ""}`}
-                  type="number"
-                  min="1"
-                  max={maxPartySize}
-                  value={party}
-                  onChange={(e) => setParty(e.target.value)}
-                  placeholder={`How many people? (max ${maxPartySize})`}
-                />
-                {partyError && (
-                  <div className="form-error">
-                    <span>⚠️</span> {partyError}
+                <div>
+                  <h2 className="text-xl font-bold text-green-700 dark:text-green-400">You're in the Queue!</h2>
+                  <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+                    Your spot is secured
+                  </p>
+                </div>
+              </div>
+
+              {/* Queue Status Display */}
+              <div className="bg-[var(--bg-subtle)] rounded-xl p-4 mb-4">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-sm text-[var(--text-muted)]">Position</span>
+                  <span className="text-3xl font-black text-[var(--red)]">#{myPosition || '-'}</span>
+                </div>
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-sm text-[var(--text-muted)]">Party Size</span>
+                  <span className="font-bold">{myEntry.party_size} people</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-[var(--text-muted)]">Status</span>
+                  {getStatusBadge(myEntry.status)}
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <button 
+                  className="btn btn-secondary btn-md flex-1"
+                  onClick={() => window.location.reload()}
+                >
+                  <span>🔄</span> Refresh
+                </button>
+                <button 
+                  className="btn btn-outline btn-md flex-1"
+                  onClick={async () => {
+                    try {
+                      await api.queueCancel(myEntry.id);
+                      setToast({ message: "Queue spot cancelled", type: "success" });
+                      setMyEntry(null);
+                      setQrDataUrl("");
+                      load();
+                    } catch (err) {
+                      setToast({ message: "Failed to cancel", type: "error" });
+                    }
+                  }}
+                >
+                  <span>❌</span> Leave Queue
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="card card-large">
+              <div className="flex items-center gap-3 mb-6">
+                <div 
+                  className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl"
+                  style={{ background: "rgba(200, 0, 10, 0.1)" }}
+                >
+                  🐝
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold">Join the Queue</h2>
+                  <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+                    Walk-in guests welcome!
+                  </p>
+                </div>
+              </div>
+
+              {/* Bee mascot */}
+              <div className="flex justify-center mb-6">
+                <BeeMascot position={myPosition} status={myStatus} />
+              </div>
+
+              {/* Form */}
+              <div className="space-y-4">
+                {!user && (
+                  <div className="form-group mb-0">
+                    <label className="form-label">Your Name</label>
+                    <input
+                      className="input"
+                      placeholder="Enter your name (optional)"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                    />
                   </div>
                 )}
-              </div>
+                
+                <div className="form-group mb-0">
+                  <label className="form-label">Party Size</label>
+                  <input
+                    className={`input ${partyError ? "input-error" : ""}`}
+                    type="number"
+                    min="1"
+                    max={maxPartySize}
+                    value={party}
+                    onChange={(e) => setParty(e.target.value)}
+                    placeholder={`How many people? (max ${maxPartySize})`}
+                  />
+                  {partyError && (
+                    <div className="form-error">
+                      <span>⚠️</span> {partyError}
+                    </div>
+                  )}
+                </div>
 
-              <button 
-                className="btn btn-primary btn-lg w-full" 
-                onClick={join}
-                disabled={!!partyError}
-              >
-                <span>🐝</span> Join Queue
-              </button>
+                <button 
+                  className="btn btn-primary btn-lg w-full" 
+                  onClick={join}
+                  disabled={!!partyError}
+                >
+                  <span>🐝</span> Join Queue
+                </button>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* QR Code Card - After Joining */}
           {qrDataUrl && myEntry && (

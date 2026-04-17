@@ -48,6 +48,7 @@ export default function Reservations({ user }) {
   const [req, setReq]     = useState("");
   const [list, setList]   = useState([]);
   const [toast, setToast] = useState({ message: "", type: "success" });
+  const [activeReservation, setActiveReservation] = useState(null);
   const [expandedQR, setExpandedQR] = useState(null); // reservation id with QR open
   const [partyError, setPartyError] = useState(null);
   
@@ -75,7 +76,7 @@ export default function Reservations({ user }) {
     loadMenuItems();
     connectWS();
     const off = onWSMessage((msg) => {
-      if (msg.type === "reservations:changed") load();
+      if (msg.type === "reservation:changed") load();
     });
     return () => off();
   }, []);
@@ -157,24 +158,100 @@ export default function Reservations({ user }) {
       </div>
 
       <div className="grid lg:grid-cols-2 gap-6">
-        {/* Book form */}
-        <div className="card card-large">
-          <div className="flex items-center gap-3 mb-6">
-            <div 
-              className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl"
-              style={{ background: "rgba(200, 0, 10, 0.1)" }}
-            >
-              📅
+        {/* Book form - Show Already Reserved if applicable */}
+        {activeReservation ? (
+          <div className="card card-large card-success">
+            <div className="flex items-center gap-3 mb-6">
+              <div 
+                className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl bg-green-100 dark:bg-green-900/30"
+              >
+                ✅
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-green-700 dark:text-green-400">Reservation Confirmed!</h2>
+                <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+                  You already have an active reservation
+                </p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-xl font-bold">Book a Table</h2>
-              <p className="text-sm" style={{ color: "var(--text-muted)" }}>
-                Fill in your details to reserve
+
+            {/* Reservation Details */}
+            <div className="bg-[var(--bg-subtle)] rounded-xl p-4 mb-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-[var(--text-muted)]">Date</span>
+                <span className="font-bold">{new Date(activeReservation.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-[var(--text-muted)]">Time</span>
+                <span className="font-bold">{activeReservation.time}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-[var(--text-muted)]">Party Size</span>
+                <span className="font-bold">{activeReservation.party_size} guests</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-[var(--text-muted)]">Status</span>
+                <span className={`badge badge-sm badge-${activeReservation.status === 'confirmed' ? 'success' : 'warning'}`}>
+                  {activeReservation.status === 'confirmed' ? '✓ Confirmed' : '⏳ Pending'}
+                </span>
+              </div>
+              {activeReservation.area_pref && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-[var(--text-muted)]">Seating</span>
+                  <span className="font-bold capitalize">{activeReservation.area_pref}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3 mb-4">
+              <p className="text-sm text-yellow-800 dark:text-yellow-200 flex items-center gap-2">
+                <span>⚠️</span>
+                Want to make another reservation? Cancel this one first.
               </p>
             </div>
-          </div>
 
-          <div className="space-y-4">
+            <div className="flex gap-3">
+              <button 
+                className="btn btn-secondary btn-md flex-1"
+                onClick={() => setActiveReservation(null)}
+              >
+                <span>📝</span> New Booking
+              </button>
+              <button 
+                className="btn btn-outline btn-md flex-1"
+                onClick={async () => {
+                  try {
+                    await api.cancelReservation(activeReservation.id);
+                    setToast({ message: "Reservation cancelled", type: "success" });
+                    setActiveReservation(null);
+                    load();
+                  } catch (err) {
+                    setToast({ message: "Failed to cancel", type: "error" });
+                  }
+                }}
+              >
+                <span>❌</span> Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="card card-large">
+            <div className="flex items-center gap-3 mb-6">
+              <div 
+                className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl"
+                style={{ background: "rgba(200, 0, 10, 0.1)" }}
+              >
+                📅
+              </div>
+              <div>
+                <h2 className="text-xl font-bold">Book a Table</h2>
+                <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+                  Fill in your details to reserve
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
             <div className="form-group mb-0">
               <label className="form-label">Date</label>
               <input 
@@ -300,6 +377,7 @@ export default function Reservations({ user }) {
             </button>
           </div>
         </div>
+        )}
 
         {/* My reservations */}
         <div className="card card-large">

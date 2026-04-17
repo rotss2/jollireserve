@@ -1,8 +1,52 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+import * as api from "../lib/api";
 
 export default function Home({ user }) {
   const isAdmin = user?.role === "admin";
+  
+  // State for active reservations and queue
+  const [activeReservation, setActiveReservation] = useState(null);
+  const [activeQueue, setActiveQueue] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (user && !isAdmin) {
+      checkUserStatus();
+    } else {
+      setLoading(false);
+    }
+  }, [user, isAdmin]);
+
+  const checkUserStatus = async () => {
+    try {
+      setLoading(true);
+      // Check for active reservations
+      const reservations = await api.listMyReservations();
+      const pendingReservation = reservations.find(r => 
+        r.status === "pending" || r.status === "confirmed"
+      );
+      if (pendingReservation) {
+        setActiveReservation(pendingReservation);
+      }
+
+      // Check for active queue entry
+      const queue = await api.listQueue();
+      const myQueueEntry = queue.find(q => 
+        q.email === user?.email && 
+        (q.status === "waiting" || q.status === "called")
+      );
+      if (myQueueEntry) {
+        setActiveQueue(myQueueEntry);
+      }
+    } catch (err) {
+      console.log("Status check failed:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const hasActiveBooking = activeReservation || activeQueue;
 
   return (
     <div className="mx-auto max-w-6xl px-4 pb-16 pt-6">
@@ -123,8 +167,53 @@ export default function Home({ user }) {
         </div>
       </section>
 
+      {/* ACTIVE BOOKING ALERT - Shows if user has reservation or queue */}
+      {user && !isAdmin && hasActiveBooking && (
+        <section className="mb-6 animate-fade-in">
+          <div className="card-premium p-5 border-l-4 border-[var(--red)] bg-gradient-to-r from-[var(--red-glow)] to-transparent">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-full bg-[var(--red)]/10 flex items-center justify-center flex-shrink-0">
+                <span className="text-2xl">📋</span>
+              </div>
+              <div className="flex-1">
+                <h3 className="font-bold text-lg mb-1">You have an active booking!</h3>
+                <p className="text-sm text-[var(--text-muted)] mb-3">
+                  You already have an active {activeReservation && activeQueue ? 'reservation AND queue spot' : activeReservation ? 'reservation' : 'queue spot'}.
+                </p>
+                
+                <div className="flex flex-wrap gap-3">
+                  {activeReservation && (
+                    <Link 
+                      to="/reservations" 
+                      className="btn btn-primary btn-sm flex items-center gap-2"
+                    >
+                      <span>📅</span>
+                      View Reservation
+                      <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                    </Link>
+                  )}
+                  {activeQueue && (
+                    <Link 
+                      to="/queue" 
+                      className="btn btn-secondary btn-sm flex items-center gap-2"
+                    >
+                      <span>🐝</span>
+                      View Queue #{activeQueue.position}
+                      <span className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse" />
+                    </Link>
+                  )}
+                </div>
+              </div>
+              <div className="hidden sm:block text-right">
+                <span className="badge badge-md badge-success">Active</span>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* VIP DASHBOARD - For Logged-in Users */}
-      {user && !isAdmin && (
+      {user && !isAdmin && !loading && (
         <section className="mb-8 animate-fade-in-up">
           {/* VIP Status Card */}
           <div className="card-premium p-6 mb-6 bg-gradient-to-br from-[var(--bg-card)] to-[var(--bg-subtle)]">
