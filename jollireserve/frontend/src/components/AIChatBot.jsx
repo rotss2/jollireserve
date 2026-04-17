@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect } from 'react';
-import { MessageCircle, X, Send, Bot, User, Sparkles } from 'lucide-react';
 
 const MOCK_RESPONSES = {
   greeting: [
@@ -152,10 +151,10 @@ export default function AIChatBot() {
         }`}
       >
         {isOpen ? (
-          <X className="w-6 h-6 text-white" />
+          <span className="text-2xl">✕</span>
         ) : (
           <div className="relative">
-            <MessageCircle className="w-6 h-6 text-white" />
+            <span className="text-2xl">💬</span>
             <span className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-white animate-pulse" />
           </div>
         )}
@@ -165,22 +164,26 @@ export default function AIChatBot() {
       {isOpen && (
         <div className="fixed bottom-24 right-6 z-40 w-80 sm:w-96 card-premium animate-scale-in overflow-hidden">
           {/* Header */}
-          <div className="bg-gradient-to-r from-[var(--red)] to-[var(--red2)] p-4 text-white">
-            <div className="flex items-center gap-3">
-              <div className="relative">
-                <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm">
-                  <Bot className="w-6 h-6" />
-                </div>
-                <Sparkles className="absolute -top-1 -right-1 w-4 h-4 text-yellow-300" />
+          <div className="ai-chatbot-header">
+            <div className="flex items-center gap-2">
+              <div className="ai-chatbot-avatar">
+                <span className="text-lg">🤖</span>
               </div>
               <div>
-                <p className="font-bold">JolliBot AI</p>
-                <p className="text-xs text-white/80 flex items-center gap-1">
-                  <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-                  Online • Ready to help
+                <h3 className="font-bold text-sm">JolliBot AI</h3>
+                <p className="text-[10px] opacity-90 flex items-center gap-1">
+                  <span>✨</span>
+                  Premium Assistant
                 </p>
               </div>
             </div>
+            <button
+              onClick={() => setIsOpen(false)}
+              className="p-1 hover:bg-white/20 rounded-lg transition-colors"
+              aria-label="Close chat"
+            >
+              <span className="text-xl">✕</span>
+            </button>
           </div>
 
           {/* Messages */}
@@ -192,7 +195,7 @@ export default function AIChatBot() {
               >
                 {msg.type === 'bot' && (
                   <div className="w-8 h-8 rounded-full bg-[var(--red)]/10 flex items-center justify-center mr-2 flex-shrink-0">
-                    <Bot className="w-4 h-4 text-[var(--red)]" />
+                    <span className="text-sm">🤖</span>
                   </div>
                 )}
                 <div className={`max-w-[80%] ${
@@ -204,7 +207,7 @@ export default function AIChatBot() {
                 </div>
                 {msg.type === 'user' && (
                   <div className="w-8 h-8 rounded-full bg-[var(--bg-subtle)] flex items-center justify-center ml-2 flex-shrink-0">
-                    <User className="w-4 h-4 text-[var(--text-muted)]" />
+                    <span className="text-sm">👨</span>
                   </div>
                 )}
               </div>
@@ -212,14 +215,18 @@ export default function AIChatBot() {
 
             {/* Typing Indicator */}
             {isTyping && (
-              <div className="flex justify-start">
-                <div className="w-8 h-8 rounded-full bg-[var(--red)]/10 flex items-center justify-center mr-2">
-                  <Bot className="w-4 h-4 text-[var(--red)]" />
-                </div>
-                <div className="chat-bubble-bot flex items-center gap-1 py-3">
-                  <span className="w-2 h-2 bg-[var(--text-muted)] rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                  <span className="w-2 h-2 bg-[var(--text-muted)] rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                  <span className="w-2 h-2 bg-[var(--text-muted)] rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+              <div className="ai-chatbot-message bot">
+                <div className="flex items-start gap-2">
+                  <div className="ai-chatbot-avatar flex-shrink-0">
+                    <span className="text-sm">🤖</span>
+                  </div>
+                  <div className="ai-chatbot-bubble bot">
+                    <div className="ai-chatbot-typing">
+                      <span />
+                      <span />
+                      <span />
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
@@ -248,24 +255,26 @@ export default function AIChatBot() {
           )}
 
           {/* Input */}
-          <div className="p-4 border-t border-[var(--border)] bg-[var(--bg-card)]">
-            <div className="flex gap-2">
+          <div className="ai-chatbot-input">
+            <form onSubmit={(e) => e.preventDefault()} className="relative">
               <input
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyPress={handleKeyPress}
                 placeholder="Type a message..."
-                className="flex-1 px-4 py-2.5 bg-[var(--bg-input)] border border-[var(--border)] rounded-full text-sm focus:outline-none focus:border-[var(--red)] transition-colors"
+                className="w-full pl-4 pr-12 py-3 rounded-xl border-2 border-[var(--border)] bg-[var(--bg-input)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--red)] transition-colors"
+                disabled={isTyping}
               />
               <button
-                onClick={handleSend}
-                disabled={!input.trim()}
-                className="p-2.5 bg-[var(--red)] text-white rounded-full hover:bg-[var(--red2)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                type="submit"
+                disabled={!input.trim() || isTyping}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-[var(--red)] text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[var(--red-hover)] transition-colors"
+                aria-label="Send message"
               >
-                <Send className="w-5 h-5" />
+                <span className="text-sm">➤</span>
               </button>
-            </div>
+            </form>
             <p className="text-[10px] text-[var(--text-faint)] text-center mt-2">
               AI responses are simulated for demo purposes
             </p>
