@@ -1,260 +1,420 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 
-// Enhanced AI Intent Detection System with scoring and context
+// ═══════════════════════════════════════════════════════════
+// JOLLIRESERVE AI CHATBOT - Restaurant Manager Assistant
+// Natural, warm, professional conversation like a real manager
+// ═══════════════════════════════════════════════════════════
+
+// Intent Detection Patterns - Comprehensive
 const INTENT_PATTERNS = {
   greeting: {
-    keywords: ['hi', 'hello', 'hey', 'good morning', 'good afternoon', 'good evening', 'sup', 'yo', 'hola', 'howdy'],
-    phrases: ['how are you', 'what\'s up', 'how is it going'],
+    keywords: ['hi', 'hello', 'hey', 'good morning', 'good afternoon', 'good evening', 'sup', 'yo', 'hola', 'howdy', 'greetings'],
+    phrases: ['how are you', 'how\'s it going', 'nice to meet you', 'pleased to meet'],
     weight: 1
   },
   reservation: {
-    keywords: ['book', 'reserve', 'table', 'booking', 'reservation', 'dine', 'dining', 'eat', 'seat', 'seating', 'table for'],
-    phrases: ['make a reservation', 'book a table', 'reserve a spot', 'get a table', 'want to eat', 'like to dine', 'need a table'],
+    keywords: ['book', 'reserve', 'table', 'booking', 'reservation', 'dine', 'dining', 'seat', 'seating', 'table for', 'party'],
+    phrases: ['make a reservation', 'book a table', 'reserve a spot', 'get a table', 'like to dine', 'need a table', 'want to book'],
     weight: 1.2
   },
   queue: {
-    keywords: ['queue', 'wait', 'line', 'waiting', 'turn', 'spot', 'walk in', 'walk-in', 'now', 'today', 'immediate'],
-    phrases: ['join queue', 'get in line', 'waiting list', 'how long', 'current wait', 'walk in', 'available now'],
+    keywords: ['queue', 'wait', 'line', 'waiting', 'turn', 'spot', 'walk in', 'walk-in', 'immediate', 'now', 'today'],
+    phrases: ['join queue', 'get in line', 'waiting list', 'how long', 'current wait', 'available now', 'walk in'],
     weight: 1.2
   },
   menu: {
-    keywords: ['menu', 'food', 'order', 'eat', 'meal', 'chicken', 'spaghetti', 'burger', 'drink', 'pie', 'price', 'cost', 'how much'],
-    phrases: ['what do you have', 'what\'s on the menu', 'show me food', 'recommend', 'what is good', 'best seller', 'popular'],
+    keywords: ['menu', 'food', 'order', 'meal', 'chicken', 'spaghetti', 'burger', 'drink', 'pie', 'price', 'cost', 'dish', 'meal'],
+    phrases: ['what do you have', 'what\'s on the menu', 'show me food', 'recommend', 'what is good', 'best seller', 'popular', 'favorites'],
     weight: 1
   },
   payment: {
-    keywords: ['pay', 'payment', 'gcash', 'maya', 'grabpay', 'card', 'credit', 'debit', 'cash', 'money', 'price', 'cost', 'bill', 'checkout'],
-    phrases: ['how to pay', 'payment method', 'can i pay', 'accept payment', 'payment options'],
+    keywords: ['pay', 'payment', 'gcash', 'maya', 'grabpay', 'card', 'credit', 'debit', 'cash', 'money', 'bill', 'checkout', 'price'],
+    phrases: ['how to pay', 'payment method', 'can i pay', 'accept payment', 'payment options', 'how much'],
     weight: 1.1
   },
   vip: {
-    keywords: ['vip', 'points', 'loyalty', 'member', 'status', 'tier', 'gold', 'silver', 'platinum', 'reward', 'benefit', 'exclusive'],
-    phrases: ['my points', 'membership status', 'loyalty program', 'vip benefits', 'check points', 'how many points'],
+    keywords: ['vip', 'points', 'loyalty', 'member', 'status', 'tier', 'gold', 'silver', 'platinum', 'reward', 'benefit'],
+    phrases: ['my points', 'membership status', 'loyalty program', 'vip benefits', 'check points', 'how many points', 'rewards'],
     weight: 1
   },
   cancel: {
     keywords: ['cancel', 'remove', 'delete', 'change', 'modify', 'update', 'edit', 'reschedule'],
-    phrases: ['cancel reservation', 'change booking', 'modify order', 'want to cancel', 'need to change'],
+    phrases: ['cancel reservation', 'change booking', 'modify order', 'want to cancel', 'need to change', 'delete booking'],
     weight: 1.3
   },
   location: {
-    keywords: ['location', 'address', 'where', 'find', 'direction', 'map', 'branch', 'store', 'restaurant'],
-    phrases: ['where are you', 'how to get there', 'what is the address', 'location please'],
+    keywords: ['location', 'address', 'where', 'find', 'direction', 'map', 'branch', 'store', 'restaurant', 'place'],
+    phrases: ['where are you', 'how to get there', 'what is the address', 'location please', 'find you'],
     weight: 0.9
   },
   hours: {
-    keywords: ['hour', 'time', 'open', 'close', 'opening', 'closing', 'when', 'schedule', 'operating'],
-    phrases: ['what time', 'when do you open', 'when do you close', 'business hours', 'opening hours'],
+    keywords: ['hour', 'time', 'open', 'close', 'opening', 'closing', 'when', 'schedule', 'operating', 'available'],
+    phrases: ['what time', 'when do you open', 'when do you close', 'business hours', 'opening hours', 'what are your hours'],
     weight: 0.9
   },
   help: {
-    keywords: ['help', 'support', 'assist', 'question', 'how to', 'what can', 'guide', 'explain'],
-    phrases: ['i need help', 'can you help', 'how do i', 'what should i', 'assistance'],
+    keywords: ['help', 'support', 'assist', 'question', 'how to', 'what can', 'guide', 'explain', 'info', 'information'],
+    phrases: ['i need help', 'can you help', 'how do i', 'what should i', 'assistance', 'what can you do'],
     weight: 1
   },
   complaint: {
-    keywords: ['bad', 'terrible', 'awful', 'problem', 'issue', 'complaint', 'unhappy', 'disappointed', 'slow', 'rude'],
-    phrases: ['not happy', 'very bad', 'not satisfied', 'poor service', 'waiting too long'],
+    keywords: ['bad', 'terrible', 'awful', 'problem', 'issue', 'complaint', 'unhappy', 'disappointed', 'slow', 'rude', 'angry', 'mad'],
+    phrases: ['not happy', 'very bad', 'not satisfied', 'poor service', 'waiting too long', 'terrible experience'],
     weight: 1.5
   },
   compliment: {
-    keywords: ['good', 'great', 'excellent', 'amazing', 'love', 'awesome', 'best', 'perfect', 'wonderful', 'delicious'],
-    phrases: ['so good', 'really great', 'love it', 'best experience', 'highly recommend'],
+    keywords: ['good', 'great', 'excellent', 'amazing', 'love', 'awesome', 'best', 'perfect', 'wonderful', 'delicious', 'tasty'],
+    phrases: ['so good', 'really great', 'love it', 'best experience', 'highly recommend', 'will come back'],
     weight: 1
   },
   goodbye: {
-    keywords: ['bye', 'goodbye', 'see you', 'later', 'thanks', 'thank you', 'cya'],
-    phrases: ['thank you', 'thanks for', 'see you later', 'have a good', 'that\'s all'],
+    keywords: ['bye', 'goodbye', 'see you', 'later', 'thanks', 'thank you', 'cya', 'take care'],
+    phrases: ['thank you', 'thanks for', 'see you later', 'have a good', 'that\'s all', 'appreciate it'],
     weight: 0.8
+  },
+  feedback: {
+    keywords: ['review', 'feedback', 'rate', 'rating', 'experience', 'suggestion', 'improve'],
+    phrases: ['how was your', 'leave a review', 'give feedback', 'rate your', 'suggestion for'],
+    weight: 1
+  },
+  allergy: {
+    keywords: ['allergy', 'allergic', 'dietary', 'vegan', 'vegetarian', 'gluten', 'dairy', 'nut', 'restriction'],
+    phrases: ['i am allergic', 'dietary restriction', 'food allergy', 'cannot eat', 'special diet'],
+    weight: 1.2
   }
 };
 
-// Context-aware response system
-const CONVERSATION_CONTEXT = {
-  lastIntent: null,
-  userName: null,
-  reservationInProgress: false,
-  lastTopic: null
-};
+// Conversation Memory & Context Manager
+class ConversationManager {
+  constructor() {
+    this.context = {
+      lastIntent: null,
+      userName: null,
+      conversationStage: 'new', // new, greeting, helping, closing
+      lastTopic: null,
+      userMood: 'neutral', // happy, neutral, frustrated
+      askedAbout: new Set(),
+      reservationDetails: {},
+      messageCount: 0
+    };
+  }
 
-// Smart response generator with context
-const generateSmartResponse = (intent, message, context) => {
+  updateContext(intent, message) {
+    this.context.lastIntent = intent;
+    this.context.messageCount++;
+    this.context.askedAbout.add(intent);
+    
+    // Detect mood from message
+    if (intent === 'complaint') this.context.userMood = 'frustrated';
+    if (intent === 'compliment') this.context.userMood = 'happy';
+    
+    // Update conversation stage
+    if (this.context.messageCount === 1) this.context.conversationStage = 'greeting';
+    else if (intent === 'goodbye') this.context.conversationStage = 'closing';
+    else this.context.conversationStage = 'helping';
+    
+    return this.context;
+  }
+
+  getContext() {
+    return this.context;
+  }
+
+  reset() {
+    this.context = {
+      lastIntent: null,
+      userName: null,
+      conversationStage: 'new',
+      lastTopic: null,
+      userMood: 'neutral',
+      askedAbout: new Set(),
+      reservationDetails: {},
+      messageCount: 0
+    };
+  }
+}
+
+// Manager-like Response Generator - Warm, Professional, Natural
+const generateManagerResponse = (intent, message, context) => {
   const lowerMsg = message.toLowerCase();
+  const { userMood, messageCount, askedAbout, lastIntent } = context;
   
-  // Check for specific concerns/issues
+  // Personalization based on conversation history
+  const personalization = messageCount > 2 ? " Again, " : " ";
+  const followUp = messageCount > 3 && userMood === 'happy' 
+    ? " It's always a pleasure helping you! " 
+    : " ";
+
+  // COMPLAINT - Empathetic and solution-focused
   if (intent === 'complaint') {
     return [
-      "I'm sorry to hear about your experience. �",
-      "Let me help resolve this issue for you right away.",
-      "Would you like me to connect you with a manager, or is there something specific I can help fix?"
+      "I sincerely apologize for that experience. 😔",
+      "As your restaurant manager, I want to make this right immediately.",
+      "Could you share a bit more detail about what happened? I'm here to find the best solution for you, whether that's a refund, a remake of your order, or speaking with our head chef directly."
     ];
   }
   
-  if (intent === 'cancel') {
+  // COMPLIMENT - Grateful and welcoming
+  if (intent === 'compliment') {
     return [
-      "I can help you cancel or modify your booking. 📝",
-      "Are you looking to cancel a reservation or leave the queue?",
-      "Just let me know which one and I'll guide you through it!"
+      `Thank you so much for sharing that!${followUp}🌟`,
+      "Comments like yours truly make our day and inspire our team to keep delivering great experiences.",
+      "We'd love to welcome you back soon! Would you like me to help you make a reservation for your next visit?"
     ];
   }
   
+  // GREETING - Warm and inviting
+  if (intent === 'greeting') {
+    const greetings = [
+      ["Hello and welcome to Jollibee! 🍗", "I'm your virtual restaurant manager, here to make your dining experience smooth and enjoyable.", "How may I assist you today? Are you looking to make a reservation, check our menu, or perhaps join our queue?"],
+      ["Hi there! Great to see you! 👋", "Welcome to Jollibee - where every meal is a celebration.", "What brings you in today? I'm here to help with reservations, menu questions, or anything else you need!"],
+      ["Good day! Welcome to our Jollibee family! 🌟", "I'm here to ensure you have a wonderful experience with us.", "Would you like to book a table, browse our popular dishes, or learn about our VIP program?"]
+    ];
+    return greetings[Math.floor(Math.random() * greetings.length)];
+  }
+  
+  // RESERVATION - Helpful and detail-oriented
   if (intent === 'reservation') {
-    // Check if they mentioned date/time/party size
-    const hasDate = /\d{1,2}\/\d{1,2}|tomorrow|today|next|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec/i.test(message);
-    const hasTime = /\d{1,2}:\d{2}|am|pm|noon|morning|evening/i.test(message);
-    const hasParty = /\d+\s*(people|person|guest|pax)/i.test(message);
+    const hasDate = /\d{1,2}[\/\-]\d{1,2}|tomorrow|today|next|monday|tuesday|wednesday|thursday|friday|saturday|sunday|jan|feb|mar|apr|may|jun/i.test(lowerMsg);
+    const hasTime = /\d{1,2}:\d{2}|\d{1,2}\s*(am|pm)|noon|morning|evening|afternoon/i.test(lowerMsg);
+    const hasParty = /\d+\s*(people|person|guest|pax|diners)/i.test(lowerMsg) || /party of/i.test(lowerMsg);
     
     if (hasDate && hasTime && hasParty) {
       return [
-        "Perfect! I have all the details for your reservation. 📅",
-        "Let me confirm: You want a table for the date and time you mentioned, right?",
-        "Click the 'Book a Table' button below to complete your reservation!"
+        "Wonderful! I have all the details I need for your reservation. 📅✨",
+        "Let me confirm: You're looking for a table with the information you provided, correct?",
+        "Click the 'Book a Table' button below and I'll ensure everything is set up perfectly for your visit!"
       ];
-    } else if (hasDate || hasTime || hasParty) {
+    }
+    
+    if (hasDate || hasTime || hasParty) {
       const missing = [];
-      if (!hasDate) missing.push("date");
-      if (!hasTime) missing.push("time");
-      if (!hasParty) missing.push("party size");
+      if (!hasDate) missing.push("which date");
+      if (!hasTime) missing.push("what time");
+      if (!hasParty) missing.push("how many guests");
       
       return [
-        `Great start! I see you mentioned some details. 👍`,
-        `I still need the ${missing.join(' and ')} to complete your reservation.`,
-        "What would those be?"
+        "Great start! I can see you have some details in mind. 👍",
+        `To secure the perfect table for you, I just need to know ${missing.join(' and ')}.`,
+        "This helps us prepare everything so your dining experience is seamless from the moment you arrive!"
       ];
     }
     
     return [
-      "I'd love to help you make a reservation! 📅",
-      "To get started, I'll need:",
-      "• Date (e.g., today, tomorrow, or specific date)",
-      "• Time (e.g., 7:00 PM)",
-      "• Party size (e.g., 4 people)",
-      "What works for you?"
+      "I'd be delighted to help you make a reservation! 📅",
+      "To find you the perfect table, I'll need just a few details:",
+      "• What date would you prefer? (today, tomorrow, or a specific date)",
+      "• What time works best? (we're open 9 AM - 10 PM)",
+      "• How many guests will be joining you?",
+      "Once I have these details, I can check availability and get you booked right away!"
     ];
   }
   
+  // QUEUE - Efficient and informative
   if (intent === 'queue') {
-    // Check if asking about current wait time
-    if (/how long|wait time|how many|current/i.test(lowerMsg)) {
+    const askingWaitTime = /how long|wait time|how many|current wait|busy/i.test(lowerMsg);
+    
+    if (askingWaitTime) {
       return [
-        "Let me check the current queue status for you... 🔍",
-        "Right now there are about 8 parties ahead of you.",
-        "Estimated wait time: 20-25 minutes.",
-        "Would you like me to add you to the queue so you don't have to wait at the restaurant?"
+        "Let me check our current queue status for you right now... 🔍",
+        "Currently, we have about 8 parties waiting ahead, with an estimated wait time of 20-25 minutes.",
+        "The good news? You can join our virtual queue from wherever you are! Would you like me to add your party to the list? Just let me know how many people are in your group."
       ];
     }
     
     return [
-      "I can help you join our virtual queue! 🐝",
-      "Just provide your party size and I'll add you to the line.",
-      "You'll get real-time updates on your position via SMS.",
-      "How many people are in your party?"
+      "Absolutely! Our virtual queue system is perfect for busy days. 🐝",
+      "Just tell me how many people are in your party, and I'll add you to the queue immediately.",
+      "You'll receive real-time updates on your phone as your table gets closer. No need to wait at the restaurant - you can run errands or relax nearby!",
+      "How many guests should I add to the queue?"
     ];
   }
   
+  // MENU - Enthusiastic and descriptive
   if (intent === 'menu') {
-    // Check for specific food queries
-    if (/chicken|spaghetti|burger|pie|drink|dessert/i.test(lowerMsg)) {
+    const askingSpecific = /chicken|spaghetti|burger|pie|palabok|burger|steak|hotdog/i.test(lowerMsg);
+    
+    if (askingSpecific) {
       return [
-        "Great choice! 🍽️",
-        "That item is one of our best sellers!",
-        "Would you like to pre-order this when making your reservation?",
-        "Click 'View Menu' to see all our delicious options!"
+        "Excellent taste! 🍽️ That's one of our most popular items for good reason.",
+        "Our customers consistently rave about it! Would you like to pre-order this when making your reservation? It'll be ready right when you arrive.",
+        "Or would you like to see our full menu? I can recommend some perfect pairings with that dish!"
       ];
     }
     
     return [
-      "Here's what our customers love most: 🌟",
-      "🥇 2pc Chicken Joy with Rice - ₱150",
-      "🥇 Jolly Spaghetti - ₱120", 
-      "🥇 Peach Mango Pie - ₱45",
-      "🥇 Yumburger - ₱85",
-      "Would you like to see the full menu or pre-order something?"
+      "I'm excited to share our customer favorites with you! 🌟",
+      "",
+      "🥇 Chicken Joy (2pc) with Rice - Our signature! Crispy, juicy, absolutely delicious - ₱150",
+      "🥇 Jolly Spaghetti - Sweet-style sauce with hotdog slices - ₱120", 
+      "🥇 Peach Mango Pie - Freshly baked daily, the perfect finish - ₱45",
+      "🥇 Yumburger - Classic comfort in every bite - ₱85",
+      "🥇 Palabok Fiesta - Traditional Filipino flavors - ₱140",
+      "",
+      "Would you like details on any of these, or shall I show you our complete menu?"
     ];
   }
   
+  // ALLERGY - Caring and thorough
+  if (intent === 'allergy') {
+    return [
+      "Thank you for letting me know about your dietary needs - your safety is our top priority. 🛡️",
+      "",
+      "We take allergies very seriously. Here's what I can share:",
+      "• All our fried chicken is gluten-free (no breading with wheat)",
+      "• Our steamed rice and vegetables are allergen-friendly",
+      "• We can prepare meals without common allergens upon request",
+      "• Please inform your server about any severe allergies when you arrive",
+      "",
+      "Would you like me to help you find specific menu items that fit your dietary requirements?"
+    ];
+  }
+  
+  // PAYMENT - Clear and helpful
   if (intent === 'payment') {
     return [
-      "We accept multiple payment options! 💳",
-      "• GCash - Most popular, instant confirmation",
-      "• Maya - Quick and secure",
-      "• GrabPay - Earn GrabRewards",
-      "• Credit/Debit Card - Visa, Mastercard",
-      "• Cash - Pay at the counter",
-      "Which payment method would you prefer?"
+      "Great question! We want to make paying as convenient as possible for you. 💳",
+      "",
+      "We gladly accept:",
+      "• 💚 GCash - Most popular choice, instant confirmation",
+      "• 💜 Maya - Secure and quick processing", 
+      "• 🚗 GrabPay - Earn rewards while you pay",
+      "• 💳 Credit/Debit Cards - Visa, Mastercard accepted",
+      "• 💵 Cash - Always welcome at the counter",
+      "",
+      "For reservations, you can pay when you arrive. For pre-orders, we process payment when confirming your order.",
+      "Is there a specific payment method you'd prefer to use?"
     ];
   }
   
+  // VIP - Encouraging and informative
   if (intent === 'vip') {
     return [
-      "You're currently a Silver Member! 🥈",
-      "Points: 350/500 (150 more to Gold!)",
+      "Let me check your VIP status for you! 🏆",
       "",
-      "Your current benefits:",
-      "⚡ Priority seating (skip 2 queue spots)",
-      "🎁 Free Peach Mango Pie on your birthday",
+      "You currently have 350 points - you're doing great!",
+      "Just 150 more points and you'll reach Gold Member status! 🥇",
       "",
-      "Gold benefits you'll unlock:",
+      "Your Silver Member Benefits:",
+      "⚡ Priority seating (skip 2 spots in queue)",
+      "� Free Peach Mango Pie on your birthday",
+      "📧 Early access to special promotions",
+      "",
+      "Gold Benefits coming your way:",
       "👑 10% discount on all orders",
-      "🍽️ Exclusive menu previews",
-      "Keep dining with us to level up!"
+      "🍽️ Exclusive menu previews and tastings",
+      "🎁 Surprise gifts on random visits",
+      "",
+      "Keep enjoying our meals - every peso spent earns you points toward even more perks!"
     ];
   }
   
+  // HOURS - Detailed and helpful
   if (intent === 'hours') {
     return [
-      "Our operating hours are:",
-      "📅 Monday - Friday: 9:00 AM - 10:00 PM",
-      "📅 Saturday - Sunday: 8:00 AM - 11:00 PM",
-      "📅 Holidays: 9:00 AM - 9:00 PM",
+      "Here are our operating hours - we look forward to welcoming you! 📅",
       "",
-      "Peak hours are usually 12:00-2:00 PM and 6:00-8:00 PM",
-      "I recommend booking in advance during these times!"
+      "� Monday - Friday: 9:00 AM - 10:00 PM",
+      "� Saturday - Sunday: 8:00 AM - 11:00 PM", 
+      "� Holidays: 9:00 AM - 9:00 PM",
+      "",
+      "💡 Pro tip from your restaurant manager:",
+      "Our peak hours are typically 12:00-2:00 PM and 6:00-8:00 PM.",
+      "For the most relaxed dining experience, consider visiting during our off-peak hours (2-5 PM or after 8 PM).",
+      "Or make a reservation to secure your preferred time!"
     ];
   }
   
+  // LOCATION - Detailed with landmarks
   if (intent === 'location') {
     return [
+      "We're easy to find! Here's everything you need: 📍",
+      "",
       "📍 Jollibee Main Branch",
       "123 Main Street, City Center",
-      "Near the Central Park Mall",
+      "Located inside Central Park Mall",
       "",
-      "Landmarks: Next to Starbucks, across from City Hall",
-      "Parking available at the mall (validated for diners)",
+      "🎯 Landmarks to help you find us:",
+      "• Right next to Starbucks Coffee",
+      "• Across from City Hall building", 
+      "• Ground floor, near the main entrance",
       "",
-      "Need directions? I can help you find the best route!"
+      "🚗 Parking:",
+      "Free parking available at the mall! Just get your ticket validated at our counter when you dine with us.",
+      "",
+      "Need specific directions from your location? I'm happy to help guide you!"
     ];
   }
   
+  // CANCEL - Supportive and solution-oriented
+  if (intent === 'cancel') {
+    return [
+      "I completely understand - plans change, and that's okay! 📝",
+      "I'm here to help you cancel or modify your booking with no hassle.",
+      "",
+      "Are you looking to:",
+      "• Cancel a reservation?",
+      "• Leave the queue?", 
+      "• Or just modify the details (time, party size)?",
+      "",
+      "Just let me know which one, and I'll take care of it immediately. No penalties for changes made in advance!"
+    ];
+  }
+  
+  // FEEDBACK - Appreciative
+  if (intent === 'feedback') {
+    return [
+      "Your feedback means the world to us! 📝",
+      "We're constantly working to improve, and your thoughts help us serve you better.",
+      "",
+      "Would you like to:",
+      "• Share a quick review of your recent visit?",
+      "• Suggest something new you'd like to see on our menu?",
+      "• Tell us about something we did exceptionally well?",
+      "",
+      "I'm all ears and ready to pass your feedback to our team!"
+    ];
+  }
+  
+  // HELP - Comprehensive and organized
   if (intent === 'help') {
     return [
-      "Here's everything I can help you with! �",
+      "I'm here to make your Jollibee experience wonderful! Here's how I can help: 🌟",
       "",
-      "📅 Reservations - Book a table in advance",
-      "🐝 Queue - Join our virtual waiting line",
-      "🍗 Menu - Browse food and pre-order",
-      "💳 Payment - Payment methods and processing",
-      "🏆 VIP - Check your loyalty status and points",
-      "⏰ Hours - Operating hours and peak times",
-      "📍 Location - Find us and get directions",
+      "📅 Reservations - Book your table in advance (recommended for weekends!)",
+      "🐝 Virtual Queue - Join the line remotely and get real-time updates",
+      "🍗 Menu & Ordering - Browse dishes, get recommendations, pre-order",
+      "💳 Payment Info - Learn about accepted payment methods",
+      "🏆 VIP Program - Check points, benefits, and tier status",
+      "⏰ Hours & Location - Operating times and directions",
+      "�️ Dietary Needs - Allergies, restrictions, special requests",
       "",
-      "What would you like to know more about?"
+      "Just ask me anything naturally - I'm here to chat like a real restaurant manager would! What can I help you with?"
     ];
   }
   
+  // GOODBYE - Warm and inviting return
   if (intent === 'goodbye') {
-    return [
-      "You're welcome! 🌟",
-      "Thanks for choosing Jollibee!",
-      "Have a great day and we look forward to serving you! 🍗"
+    const goodbyes = [
+      ["It was my pleasure helping you today! 🌟", "Thank you for choosing Jollibee - we truly appreciate your trust in us.", "We can't wait to welcome you in person soon. Have a fantastic day! 🍗"],
+      ["You're very welcome! 😊", "Remember, I'm always here if you need anything else - reservations, questions, or just a quick chat about our menu!", "Take care and see you at Jollibee soon!"],
+      ["Thanks for stopping by to chat! 🙏", "Whether you're dining in or taking out, we're ready to serve you with a smile.", "Have a wonderful day, and come back anytime!"]
     ];
+    return goodbyes[Math.floor(Math.random() * goodbyes.length)];
   }
   
-  // Default contextual response
+  // DEFAULT - Friendly redirect with context awareness
+  const previousTopics = Array.from(askedAbout).slice(-2);
+  const contextHint = previousTopics.length > 0 
+    ? ` We've been chatting about ${previousTopics.join(' and ')}, but I'm happy to discuss anything else!`
+    : '';
+  
   return [
-    "I'm here to help! 🤔",
-    "I can assist with reservations, queue, menu, payments, or VIP status.",
-    "What would you like to do? (Type 'help' for all options)"
+    "I'm here to help however I can! 🤔",
+    `${contextHint}`,
+    "I can assist with reservations, our menu, queue status, payment options, VIP benefits, hours, location, or any other questions you might have.",
+    "What would be most helpful for you right now? (Or type 'help' to see all options!)"
   ];
 };
 
@@ -308,53 +468,65 @@ export default function AIChatBot() {
   const [isTyping, setIsTyping] = useState(false);
   const [hasGreeted, setHasGreeted] = useState(false);
   const messagesEndRef = useRef(null);
+  
+  // Conversation memory that persists during chat session
+  const conversationManager = useRef(new ConversationManager()).current;
 
-  const scrollToBottom = () => {
+  const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
+  }, []);
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messages, scrollToBottom]);
+
+  // Reset conversation when chat is closed
+  useEffect(() => {
+    if (!isOpen) {
+      setHasGreeted(false);
+      conversationManager.reset();
+    }
+  }, [isOpen, conversationManager]);
 
   useEffect(() => {
     if (isOpen && !hasGreeted) {
       setHasGreeted(true);
-      const greeting = [
-        "Hello! I'm JolliBot, your AI dining assistant! 🍗",
-        "I can help you book tables, check queue status, browse our menu, or answer any questions!",
-        "What would you like to do today?"
-      ];
+      const greeting = generateManagerResponse('greeting', '', conversationManager.getContext());
       sendBotMessage(greeting);
     }
-  }, [isOpen, hasGreeted]);
+  }, [isOpen, hasGreeted, conversationManager]);
 
-  const sendBotMessage = async (responses, delay = 800) => {
+  const sendBotMessage = useCallback(async (responses, delay = 700) => {
     setIsTyping(true);
     for (const text of responses) {
-      await new Promise(r => setTimeout(r, delay));
-      setMessages(prev => [...prev, { type: 'bot', text, id: Date.now() + Math.random() }]);
+      if (text.trim()) { // Only send non-empty messages
+        await new Promise(r => setTimeout(r, delay));
+        setMessages(prev => [...prev, { type: 'bot', text, id: Date.now() + Math.random() }]);
+      }
     }
     setIsTyping(false);
-  };
+  }, []);
 
-  const handleSend = async () => {
-    if (!input.trim()) return;
+  const handleSend = useCallback(async (textToSend = null) => {
+    const messageText = textToSend || input.trim();
+    if (!messageText) return;
 
-    const userMessage = input.trim();
-    setMessages(prev => [...prev, { type: 'user', text: userMessage, id: Date.now() }]);
+    // Add user message
+    setMessages(prev => [...prev, { type: 'user', text: messageText, id: Date.now() }]);
     setInput('');
 
     // Simulate AI thinking
     setIsTyping(true);
-    await new Promise(r => setTimeout(r, 1000));
+    await new Promise(r => setTimeout(r, 800));
 
-    const intent = detectIntentAdvanced(userMessage);
-    const responses = generateSmartResponse(intent, userMessage, CONVERSATION_CONTEXT);
+    // Detect intent and generate response with context
+    const intent = detectIntentAdvanced(messageText);
+    conversationManager.updateContext(intent, messageText);
+    const responses = generateManagerResponse(intent, messageText, conversationManager.getContext());
     
     setIsTyping(false);
-    sendBotMessage(responses, 600);
-  };
+    sendBotMessage(responses, 500);
+  }, [input, conversationManager, sendBotMessage]);
 
   const handleKeyPress = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -365,21 +537,25 @@ export default function AIChatBot() {
 
   return (
     <>
-      {/* Chat Toggle Button */}
+      {/* Chat Toggle Button - Manager Chat */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`fixed bottom-6 right-6 z-40 p-4 rounded-full shadow-lg transition-all duration-300 hover:scale-110 ${
+        className={`fixed bottom-6 right-6 z-40 p-4 rounded-full shadow-xl transition-all duration-300 hover:scale-110 hover:shadow-2xl ${
           isOpen 
             ? 'bg-[var(--text-muted)] rotate-90' 
-            : 'bg-[var(--red)] hover:bg-[var(--red2)] glow-red'
+            : 'bg-[var(--red)] hover:bg-[var(--red-hover)] glow-red'
         }`}
+        aria-label={isOpen ? "Close chat" : "Chat with restaurant manager"}
       >
         {isOpen ? (
           <span className="text-2xl">✕</span>
         ) : (
           <div className="relative">
-            <span className="text-2xl">💬</span>
-            <span className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-white animate-pulse" />
+            <span className="text-2xl">👨‍�</span>
+            <span className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full border-2 border-white animate-pulse" />
+            <span className="absolute -bottom-4 left-1/2 -translate-x-1/2 bg-black text-white text-[10px] px-2 py-1 rounded-full whitespace-nowrap opacity-0 hover:opacity-100 transition-opacity">
+              Chat with us
+            </span>
           </div>
         )}
       </button>
@@ -390,20 +566,20 @@ export default function AIChatBot() {
           {/* Header */}
           <div className="ai-chatbot-header">
             <div className="flex items-center gap-2">
-              <div className="ai-chatbot-avatar">
-                <span className="text-lg">🤖</span>
+              <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+                <span className="text-xl">👨‍💼</span>
               </div>
               <div>
-                <h3 className="font-bold text-sm">JolliBot AI</h3>
+                <h3 className="font-bold text-sm">Restaurant Manager</h3>
                 <p className="text-[10px] opacity-90 flex items-center gap-1">
-                  <span>✨</span>
-                  Premium Assistant
+                  <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+                  Online now
                 </p>
               </div>
             </div>
             <button
               onClick={() => setIsOpen(false)}
-              className="p-1 hover:bg-white/20 rounded-lg transition-colors"
+              className="p-2 hover:bg-white/20 rounded-lg transition-colors"
               aria-label="Close chat"
             >
               <span className="text-xl">✕</span>
@@ -457,21 +633,23 @@ export default function AIChatBot() {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Quick Actions */}
-          {messages.length > 0 && messages.length < 4 && (
-            <div className="px-4 py-2 bg-[var(--bg-subtle)] border-t border-[var(--border)]">
-              <p className="text-xs text-[var(--text-muted)] mb-2">Quick Actions:</p>
+          {/* Quick Actions - Suggestion Chips */}
+          {!isTyping && (
+            <div className="px-4 py-3 bg-[var(--bg-subtle)] border-t border-[var(--border)]">
+              <p className="text-xs text-[var(--text-muted)] mb-2 font-medium">Quick Questions:</p>
               <div className="flex flex-wrap gap-2">
-                {['Book a table', 'Check queue', 'View menu', 'My VIP status'].map((action) => (
+                {[
+                  { label: '📅 Book a table', value: 'I want to make a reservation' },
+                  { label: '🐝 Check queue', value: 'How long is the wait right now?' },
+                  { label: '🍗 View menu', value: 'What are your most popular dishes?' },
+                  { label: '🏆 My VIP status', value: 'Check my loyalty points' }
+                ].map((action) => (
                   <button
-                    key={action}
-                    onClick={() => {
-                      setInput(action);
-                      handleSend();
-                    }}
-                    className="text-xs px-3 py-1.5 bg-white dark:bg-[var(--bg-card)] border border-[var(--border)] rounded-full hover:border-[var(--red)] hover:text-[var(--red)] transition-colors"
+                    key={action.label}
+                    onClick={() => handleSend(action.value)}
+                    className="text-xs px-3 py-2 bg-white dark:bg-[var(--bg-card)] border border-[var(--border)] rounded-full hover:border-[var(--red)] hover:text-[var(--red)] hover:shadow-md transition-all duration-200 active:scale-95"
                   >
-                    {action}
+                    {action.label}
                   </button>
                 ))}
               </div>
@@ -479,28 +657,35 @@ export default function AIChatBot() {
           )}
 
           {/* Input */}
-          <div className="ai-chatbot-input">
-            <form onSubmit={(e) => e.preventDefault()} className="relative">
+          <div className="p-4 bg-[var(--bg-card)] border-t border-[var(--border)]">
+            <form 
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSend();
+              }} 
+              className="relative flex gap-2"
+            >
               <input
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyPress={handleKeyPress}
-                placeholder="Type a message..."
-                className="w-full pl-4 pr-12 py-3 rounded-xl border-2 border-[var(--border)] bg-[var(--bg-input)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--red)] transition-colors"
+                placeholder="Type your message here..."
+                className="flex-1 pl-4 pr-4 py-3 rounded-xl border-2 border-[var(--border)] bg-[var(--bg-input)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--red)] transition-colors"
                 disabled={isTyping}
               />
               <button
                 type="submit"
                 disabled={!input.trim() || isTyping}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-[var(--red)] text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[var(--red-hover)] transition-colors"
+                className="px-4 py-3 bg-[var(--red)] text-white font-semibold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[var(--red-hover)] active:scale-95 transition-all duration-200 flex items-center gap-1"
                 aria-label="Send message"
               >
-                <span className="text-sm">➤</span>
+                <span>Send</span>
+                <span>➤</span>
               </button>
             </form>
             <p className="text-[10px] text-[var(--text-faint)] text-center mt-2">
-              AI responses are simulated for demo purposes
+              Your restaurant manager is here to help • Typical response time: under a minute
             </p>
           </div>
         </div>
