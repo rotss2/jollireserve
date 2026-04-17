@@ -37,18 +37,8 @@ function AppInner() {
     setUser(null);
   }
 
-  // Handle Initial Load & Suspension Events
+  // Handle Initial Auth Check (runs once on mount)
   useEffect(() => {
-    const handleSuspension = () => {
-      // ✅ PROTECT ADMIN: Don't lock out if the user is an admin
-      if (user?.role === 'admin') return;
-
-      setIsSuspended(true);
-      logout();
-    };
-
-    window.addEventListener("user-suspended", handleSuspension);
-
     (async () => {
       try {
         const u = await getMe();
@@ -60,7 +50,19 @@ function AppInner() {
         setLoadingMe(false);
       }
     })();
+  }, []);
 
+  // Handle Suspension Events
+  useEffect(() => {
+    const handleSuspension = () => {
+      // ✅ PROTECT ADMIN: Don't lock out if the user is an admin
+      if (user?.role === 'admin') return;
+
+      setIsSuspended(true);
+      logout();
+    };
+
+    window.addEventListener("user-suspended", handleSuspension);
     return () => window.removeEventListener("user-suspended", handleSuspension);
   }, [user]);
 
