@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import QRCode from "qrcode";
 import Toast from "../components/Toast";
 import BeeMascot from "../components/BeeMascot";
@@ -17,6 +17,8 @@ export default function Queue({ user }) {
   const [qrDataUrl, setQrDataUrl] = useState("");
   const [myEntry, setMyEntry]     = useState(null);
   const [partyError, setPartyError] = useState(null);
+  const [isAlarmPlaying, setIsAlarmPlaying] = useState(false);
+  const audioRef = useRef(null);
 
   async function load() {
     const data = await api.queueActive();
@@ -85,119 +87,280 @@ export default function Queue({ user }) {
     ? (entries.find((e) => e.id === myEntry.id)?.status || myEntry.status)
     : null;
 
+  // Alarm sound effect - plays when user is called
+  useEffect(() => {
+    if (myStatus === "called" && !isAlarmPlaying) {
+      // Create audio element with notification sound
+      const audio = new Audio("https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3");
+      audio.loop = true;
+      audio.volume = 0.8;
+      audioRef.current = audio;
+      audio.play().catch(() => {
+        // Audio play failed (browser autoplay policy)
+        console.log("Audio autoplay blocked - user interaction needed");
+      });
+      setIsAlarmPlaying(true);
+      setToast({ message: "🎉 You're being called! Please proceed to the counter!", type: "success" });
+    } else if (myStatus !== "called" && isAlarmPlaying && audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      setIsAlarmPlaying(false);
+    }
+
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+    };
+  }, [myStatus, isAlarmPlaying]);
+
+  const stopAlarm = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
+    setIsAlarmPlaying(false);
+  };
+
+  // Get status badge variant
+  const getStatusBadge = (status) => {
+    switch (status) {
+      case "called":
+        return <span className="badge badge-sm badge-warning">Called</span>;
+      case "seated":
+        return <span className="badge badge-sm badge-success">Seated</span>;
+      case "cancelled":
+        return <span className="badge badge-sm badge-error">Cancelled</span>;
+      default:
+        return <span className="badge badge-sm badge-secondary">Waiting</span>;
+    }
+  };
+
   return (
-    <div className="mx-auto max-w-6xl px-4 pb-16">
+    <div className="mx-auto max-w-6xl px-4 pb-16 pt-4">
       <Toast
         message={toast.message}
         type={toast.type}
         onClose={() => setToast({ message: "", type: "success" })}
       />
 
-      <div className="grid md:grid-cols-2 gap-6">
-        {/* Join form + mascot */}
-        <div className="card p-8">
-          <h2 className="text-3xl font-black">Live Queue</h2>
-          <p className="mt-1" style={{ color: "var(--text-muted)" }}>
-            Join the queue and track your turn in real time.
-          </p>
+      {/* Page Header */}
+      <div className="mb-8 text-center md:text-left">
+        <h1 className="text-3xl md:text-4xl font-black mb-2">Live Queue</h1>
+        <p className="text-lg" style={{ color: "var(--text-muted)" }}>
+          Join the queue and track your turn in real time
+        </p>
+      </div>
 
-          {/* Bee mascot — shows after joining, or idle before */}
-          <div className="flex justify-center mt-4">
-            <BeeMascot
-              position={myPosition}
-              status={myStatus}
-            />
-          </div>
-
-          <div className="mt-2 space-y-3">
-            {!user && (
-              <input
-                className="input"
-                placeholder="Your name (optional)"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-              />
-            )}
-            <input
-              className="input"
-              type="number"
-              min="1"
-              max={maxPartySize}
-              value={party}
-              onChange={(e) => setParty(e.target.value)}
-              placeholder={`Party size (max ${maxPartySize})`}
-              style={partyError ? { border: "2px solid #ef4444" } : {}}
-            />
-            {partyError && (
-              <div className="text-xs" style={{ color: "#ef4444" }}>
-                ⚠️ {partyError}
+      <div className="grid lg:grid-cols-2 gap-6">
+        {/* Left Column: Join Form */}
+        <div className="space-y-6">
+          {/* Main Join Card */}
+          <div className="card card-large">
+            <div className="flex items-center gap-3 mb-6">
+              <div 
+                className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl"
+                style={{ background: "rgba(200, 0, 10, 0.1)" }}
+              >
+                🐝
               </div>
-            )}
-            <button className="btn btn-red w-full py-3" onClick={join}>
-              🐝 Join Queue
-            </button>
+              <div>
+                <h2 className="text-xl font-bold">Join the Queue</h2>
+                <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+                  Walk-in guests welcome!
+                </p>
+              </div>
+            </div>
 
-            <div className="rounded-2xl p-4" style={{ background: "var(--bg-input)", border: "1px solid var(--border)" }}>
-              <div className="text-xs" style={{ color: "var(--text-muted)" }}>Active queue</div>
-              <div className="text-5xl font-black text-[var(--red)]">{entries.length}</div>
+            {/* Bee mascot */}
+            <div className="flex justify-center mb-6">
+              <BeeMascot position={myPosition} status={myStatus} />
+            </div>
+
+            {/* Form */}
+            <div className="space-y-4">
+              {!user && (
+                <div className="form-group mb-0">
+                  <label className="form-label">Your Name</label>
+                  <input
+                    className="input"
+                    placeholder="Enter your name (optional)"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                  />
+                </div>
+              )}
+              
+              <div className="form-group mb-0">
+                <label className="form-label">Party Size</label>
+                <input
+                  className={`input ${partyError ? "input-error" : ""}`}
+                  type="number"
+                  min="1"
+                  max={maxPartySize}
+                  value={party}
+                  onChange={(e) => setParty(e.target.value)}
+                  placeholder={`How many people? (max ${maxPartySize})`}
+                />
+                {partyError && (
+                  <div className="form-error">
+                    <span>⚠️</span> {partyError}
+                  </div>
+                )}
+              </div>
+
+              <button 
+                className="btn btn-primary btn-lg w-full" 
+                onClick={join}
+                disabled={!!partyError}
+              >
+                <span>🐝</span> Join Queue
+              </button>
             </div>
           </div>
 
-          {/* QR code after joining */}
+          {/* QR Code Card - After Joining */}
           {qrDataUrl && myEntry && (
-            <div className="mt-5 rounded-2xl p-5 text-center" style={{ background: "var(--bg-input)", border: "1px solid var(--border)" }}>
-              <div className="font-bold text-sm mb-1">Your queue ticket</div>
-              <div className="text-xs mb-3" style={{ color: "var(--text-muted)" }}>
-                Scan to check your live position on your phone
+            <div className="card card-normal card-info">
+              <div className="text-center">
+                <div className="w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center text-3xl" style={{ background: "rgba(59, 130, 246, 0.1)" }}>
+                  🎫
+                </div>
+                <h3 className="text-lg font-bold mb-1">Your Queue Ticket</h3>
+                <p className="text-sm mb-4" style={{ color: "var(--text-muted)" }}>
+                  Scan to check position on your phone
+                </p>
+                
+                <div className="bg-white p-3 rounded-xl inline-block mb-4">
+                  <img src={qrDataUrl} alt="Queue QR" className="rounded-lg" style={{ width: 160, height: 160 }} />
+                </div>
+                
+                <div className="flex justify-center gap-4 text-sm">
+                  <div className="text-center">
+                    <div className="text-2xl font-black" style={{ color: "var(--red)" }}>
+                      {myPosition ? `#${myPosition}` : "-"}
+                    </div>
+                    <div style={{ color: "var(--text-muted)" }}>Position</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-black" style={{ color: "var(--red)" }}>
+                      {myEntry.party_size}
+                    </div>
+                    <div style={{ color: "var(--text-muted)" }}>Guests</div>
+                  </div>
+                </div>
               </div>
-              <img src={qrDataUrl} alt="Queue QR" className="mx-auto rounded-xl" style={{ width: 160, height: 160 }} />
-              <div className="mt-2 text-xs font-semibold text-[var(--red)]">
-                {myPosition ? `#${myPosition} in queue` : "Checking position…"}
-              </div>
-              <div className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
-                Party of {myEntry.party_size} · {myEntry.name || "Guest"}
+            </div>
+          )}
+
+          {/* ALARM - Called Notification */}
+          {myStatus === "called" && (
+            <div className="card card-warning animate-pulse">
+              <div className="text-center">
+                <div className="text-5xl mb-3">🔔</div>
+                <h3 className="text-xl font-bold text-amber-800 mb-2">
+                  You're Being Called!
+                </h3>
+                <p className="text-amber-700 mb-4">
+                  Please proceed to the counter immediately
+                </p>
+                <button 
+                  className="btn btn-lg w-full font-bold" 
+                  onClick={stopAlarm}
+                  style={{ background: "#f59e0b", color: "#fff", border: "none" }}
+                >
+                  <span>🛑</span> Stop Alarm
+                </button>
+                {isAlarmPlaying && (
+                  <p className="mt-3 text-sm text-amber-600">
+                    🔊 Alarm is playing...
+                  </p>
+                )}
               </div>
             </div>
           )}
         </div>
 
-        {/* Queue board */}
-        <div className="card p-8">
-          <div className="flex items-center">
-            <h3 className="text-xl font-black">Queue Board</h3>
-            <button className="ml-auto btn btn-outline" onClick={load}>Refresh</button>
+        {/* Right Column: Queue Board */}
+        <div className="card card-large">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div 
+                className="w-10 h-10 rounded-xl flex items-center justify-center text-xl"
+                style={{ background: "var(--bg-input)" }}
+              >
+                📋
+              </div>
+              <div>
+                <h2 className="text-xl font-bold">Queue Board</h2>
+                <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+                  {entries.length} {entries.length === 1 ? "group" : "groups"} waiting
+                </p>
+              </div>
+            </div>
+            <button className="btn btn-secondary btn-sm" onClick={load}>
+              🔄 Refresh
+            </button>
           </div>
 
-          <div className="mt-4 space-y-3">
-            {entries.length === 0 && (
-              <div className="rounded-2xl p-4 text-sm" style={{ background: "var(--bg-input)", border: "1px solid var(--border)", color: "var(--text-muted)" }}>
-                No active queue right now.
+          {/* Queue List */}
+          <div className="space-y-3">
+            {entries.length === 0 ? (
+              <div className="empty-state py-8">
+                <div className="empty-state-icon">📭</div>
+                <h3 className="empty-state-title">No one in queue</h3>
+                <p className="empty-state-desc">
+                  Be the first to join! The queue is empty right now.
+                </p>
               </div>
-            )}
-            {entries.map((e, idx) => (
-              <div
-                key={e.id}
-                className="rounded-2xl p-4"
-                style={{
-                  background: myEntry?.id === e.id ? "rgba(200,0,10,0.06)" : "var(--bg-card)",
-                  border: myEntry?.id === e.id ? "1.5px solid var(--red)" : "1px solid var(--border)",
-                }}
-              >
-                <div className="flex items-center gap-3">
-                  <div className="font-black text-[var(--red)]">#{idx + 1}</div>
-                  <div className="font-semibold">{e.name || "Guest"}</div>
-                  <div className="text-sm" style={{ color: "var(--text-muted)" }}>Party {e.party_size}</div>
-                  {myEntry?.id === e.id && (
-                    <span style={{ fontSize: "0.7rem", background: "var(--red)", color: "#fff", padding: "0.1rem 0.5rem", borderRadius: "999px" }}>
-                      You
-                    </span>
-                  )}
-                  <div className="ml-auto text-xs px-2 py-1 rounded-full" style={{ background: "var(--bg-input)", color: "var(--text-muted)" }}>
-                    {e.status}
+            ) : (
+              entries.map((e, idx) => (
+                <div
+                  key={e.id}
+                  className={`p-4 rounded-xl transition-all ${
+                    myEntry?.id === e.id 
+                      ? "border-2 border-[var(--red)] bg-red-50/10" 
+                      : "border border-[var(--border)] hover:border-[var(--red)]/30"
+                  }`}
+                  style={{
+                    background: myEntry?.id === e.id ? "rgba(200,0,10,0.05)" : "var(--bg-input)",
+                  }}
+                >
+                  <div className="flex items-center gap-3 flex-wrap">
+                    {/* Position Number */}
+                    <div 
+                      className="w-10 h-10 rounded-xl flex items-center justify-center font-black text-lg"
+                      style={{ 
+                        background: myEntry?.id === e.id ? "var(--red)" : "var(--bg-card)",
+                        color: myEntry?.id === e.id ? "#fff" : "var(--red)"
+                      }}
+                    >
+                      {idx + 1}
+                    </div>
+                    
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-semibold truncate">
+                          {e.name || "Guest"}
+                        </span>
+                        {myEntry?.id === e.id && (
+                          <span className="badge badge-sm badge-primary">You</span>
+                        )}
+                      </div>
+                      <div className="text-sm" style={{ color: "var(--text-muted)" }}>
+                        Party of {e.party_size}
+                      </div>
+                    </div>
+                    
+                    {/* Status */}
+                    <div className="flex-shrink-0">
+                      {getStatusBadge(e.status)}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
       </div>

@@ -326,31 +326,59 @@ export default function Admin({ user }) {
   const badgeStyle = (color) => ({ fontSize: "0.7rem", padding: "0.2rem 0.6rem", borderRadius: 999, background: color === "green" ? "rgba(16,185,129,0.12)" : color === "red" ? "rgba(239,68,68,0.12)" : "var(--bg-subtle)", color: color === "green" ? "#10b981" : color === "red" ? "#ef4444" : "var(--text-muted)" });
   const btnSm = { fontSize: "0.72rem", padding: "0.25rem 0.65rem", borderRadius: "0.5rem", border: "1px solid var(--border)", background: "var(--bg-input)", color: "var(--text-main)", cursor: "pointer" };
 
+  // Get icon for each tab
+  const getTabIcon = (t) => {
+    const icons = {
+      "Dashboard": "📊",
+      "Reservations": "📅",
+      "Queue": "🐝",
+      "Tables": "🪑",
+      "Users": "👥",
+      "Activity": "📋",
+      "Announcements": "📢",
+      "Settings": "⚙️",
+      "Menu": "🍽️"
+    };
+    return icons[t] || "";
+  };
+
   return (
     <div className="mx-auto max-w-6xl px-4 pb-16 pt-4">
       <Toast message={toast.message} type={toast.type} onClose={() => setToast({ message: "", type: "success" })} />
 
-      <div className="flex items-center gap-3 mb-4">
-        <h2 className="text-2xl md:text-3xl font-black">Admin Dashboard</h2>
-        <button className="ml-auto btn btn-outline" onClick={loadAll}>Refresh</button>
+      {/* Page Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+        <div>
+          <h1 className="text-3xl md:text-4xl font-black mb-1">Admin Dashboard</h1>
+          <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+            Manage your restaurant operations
+          </p>
+        </div>
+        <button className="btn btn-secondary btn-md" onClick={loadAll}>
+          <span>🔄</span> Refresh Data
+        </button>
       </div>
 
-      <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap", marginBottom: "1.25rem" }}>
-        {TABS.map(t => (
-          <button key={t} onClick={() => { setTab(t); setSelectedUser(null); setUserHistory(null); }} style={{
-            padding: "0.45rem 1rem", borderRadius: 999, border: "1px solid",
-            fontSize: "0.82rem", fontWeight: 600, cursor: "pointer",
-            background: tab === t ? "var(--red)" : "var(--bg-input)",
-            borderColor: tab === t ? "var(--red)" : "var(--border)",
-            color: tab === t ? "#fff" : "var(--text-main)",
-          }}>{t}</button>
-        ))}
+      {/* Organized Tab Navigation */}
+      <div className="mb-6">
+        <div className="flex flex-wrap gap-2">
+          {TABS.map(t => (
+            <button 
+              key={t} 
+              onClick={() => { setTab(t); setSelectedUser(null); setUserHistory(null); }}
+              className={`btn btn-sm flex items-center gap-2 ${tab === t ? 'btn-primary' : 'btn-secondary'}`}
+            >
+              <span>{getTabIcon(t)}</span>
+              <span className="hidden sm:inline">{t}</span>
+            </button>
+          ))}
+        </div>
       </div>
 
       {tab === "Dashboard" && (
-        <>
+        <div className="space-y-6">
           {/* Operations Stats */}
-          <div className="grid grid-cols-3 gap-3 mb-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {[
               { label: "Reservations Today", value: summary?.reservationsToday },
               { label: "Active Queue", value: summary?.activeQueue },
@@ -364,17 +392,23 @@ export default function Admin({ user }) {
           </div>
 
           {/* User Statistics */}
-          <div className="card p-5 mb-4">
-            <div className="font-black mb-3">User Statistics</div>
-            <div className="grid grid-cols-5 gap-3">
+          <div className="card card-large">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl" style={{ background: "var(--bg-input)" }}>
+                👥
+              </div>
+              <h2 className="text-xl font-bold">User Statistics</h2>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
               {[
-                { label: "Total Users", value: userStats.total, color: "var(--text-main)" },
-                { label: "New Today", value: userStats.newToday, color: "#10b981" },
-                { label: "Suspended", value: userStats.suspended, color: "#ef4444" },
-                { label: "Staff", value: userStats.staff, color: "#f59e0b" },
-                { label: "Admins", value: userStats.admin, color: "#8b5cf6" },
+                { label: "Total Users", value: userStats.total, color: "var(--text-main)", icon: "👤" },
+                { label: "New Today", value: userStats.newToday, color: "#10b981", icon: "✨" },
+                { label: "Suspended", value: userStats.suspended, color: "#ef4444", icon: "🚫" },
+                { label: "Staff", value: userStats.staff, color: "#f59e0b", icon: "👨‍💼" },
+                { label: "Admins", value: userStats.admin, color: "#8b5cf6", icon: "👑" },
               ].map(s => (
-                <div key={s.label} className="text-center p-3" style={{ background: "var(--bg-subtle)", borderRadius: "0.5rem" }}>
+                <div key={s.label} className="text-center p-4 rounded-xl" style={{ background: "var(--bg-subtle)" }}>
+                  <div className="text-2xl mb-1">{s.icon}</div>
                   <div className="text-2xl font-black" style={{ color: s.color }}>{s.value}</div>
                   <div className="text-xs" style={{ color: "var(--text-muted)" }}>{s.label}</div>
                 </div>
@@ -383,20 +417,25 @@ export default function Admin({ user }) {
           </div>
 
           {/* System Status */}
-          <div className="card p-5 mb-4">
-            <div className="font-black mb-3">System Status</div>
-            <div className="grid grid-cols-3 gap-3">
+          <div className="card card-large">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl" style={{ background: "var(--bg-input)" }}>
+                🔧
+              </div>
+              <h2 className="text-xl font-bold">System Status</h2>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {[
                 { label: "Backend API", status: systemStatus.backend, icon: "🖥️" },
                 { label: "Firebase", status: systemStatus.firebase, icon: "🔥" },
                 { label: "WebSocket", status: systemStatus.websocket, icon: "📡" },
               ].map(s => (
-                <div key={s.label} className="flex items-center gap-2 p-3" style={{ background: "var(--bg-subtle)", borderRadius: "0.5rem" }}>
-                  <span className="text-lg">{s.icon}</span>
+                <div key={s.label} className="flex items-center gap-3 p-4 rounded-xl" style={{ background: "var(--bg-subtle)" }}>
+                  <span className="text-2xl">{s.icon}</span>
                   <div>
-                    <div className="text-sm font-semibold">{s.label}</div>
-                    <div className="text-xs" style={{ color: s.status ? "#10b981" : "#ef4444" }}>
-                      {s.status ? "✅ Connected" : "❌ Offline"}
+                    <div className="font-medium">{s.label}</div>
+                    <div className="text-sm" style={{ color: s.status ? "#16a34a" : "#dc2626" }}>
+                      {s.status ? "● Connected" : "● Offline"}
                     </div>
                   </div>
                 </div>
@@ -405,20 +444,27 @@ export default function Admin({ user }) {
           </div>
 
           {/* Quick Actions */}
-          <div className="card p-5 mb-4 border border-[var(--red)] bg-[rgba(239,68,68,0.05)]">
-            <div className="font-black mb-2 text-[var(--red)]">Quick Actions</div>
-            <div className="flex gap-2 flex-wrap">
-              <button className="btn btn-red" onClick={() => { setTab("Users"); }}>
-                👥 Manage Users
+          <div className="card card-large card-interactive" style={{ border: "2px solid var(--red)", background: "rgba(200, 0, 10, 0.03)" }}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl" style={{ background: "var(--red)", color: "white" }}>
+                ⚡
+              </div>
+              <h2 className="text-xl font-bold" style={{ color: "var(--red)" }}>Quick Actions</h2>
+            </div>
+            <div className="flex gap-3 flex-wrap">
+              <button className="btn btn-primary" onClick={() => { setTab("Users"); }}>
+                <span>👥</span> Manage Users
               </button>
-              <button className="btn btn-outline" onClick={() => { setTab("Tables"); }}>
-                🪑 Manage Tables
+              <button className="btn btn-secondary" onClick={() => { setTab("Tables"); }}>
+                <span>🪑</span> Manage Tables
               </button>
-              <button className="btn btn-outline" onClick={() => { setTab("Settings"); }}>
-                ⚙️ System Settings
+              <button className="btn btn-secondary" onClick={() => { setTab("Settings"); }}>
+                <span>⚙️</span> System Settings
               </button>
             </div>
           </div>
+        </div>
+      )}
 
           <div className="grid md:grid-cols-2 gap-4">
             <div className="card p-5">
@@ -453,7 +499,7 @@ export default function Admin({ user }) {
               </div>
             </div>
           </div>
-        </>
+        </div>
       )}
 
       {/* ── Reservations Tab ───────────────────────────────────────── */}

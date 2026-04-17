@@ -132,8 +132,17 @@ export default function Login({ onAuthed }) {
 
         .jr-wrapper {
           width: 100%;
-          max-width: 400px;
+          max-width: 420px;
           animation: jr-fadeUp 0.45s ease forwards;
+          padding: 0 1rem;
+        }
+        @media (max-width: 480px) {
+          .jr-root {
+            padding: 1rem;
+          }
+          .jr-wrapper {
+            padding: 0;
+          }
         }
 
         @keyframes jr-fadeUp {
@@ -219,11 +228,16 @@ export default function Login({ onAuthed }) {
         .jr-card {
           background: var(--bg-card);
           border: 1px solid var(--border);
-          box-shadow: var(--shadow-card);
+          box-shadow: 0 4px 32px rgba(160, 40, 20, 0.10);
           border-radius: 20px;
-          padding: 1.75rem;
+          padding: 2rem;
           backdrop-filter: blur(12px);
           -webkit-backdrop-filter: blur(12px);
+        }
+        @media (max-width: 480px) {
+          .jr-card {
+            padding: 1.5rem;
+          }
         }
 
         .jr-card-title {
@@ -262,48 +276,72 @@ export default function Login({ onAuthed }) {
 
         .jr-input {
           width: 100%;
-          padding: 0.7rem 0.9rem;
+          padding: 0.875rem 1rem;
           background: var(--bg-input);
-          border: 1.5px solid var(--border);
+          border: 2px solid var(--border);
           border-radius: 12px;
           color: var(--text-main);
           font-family: 'DM Sans', sans-serif;
-          font-size: 0.92rem;
+          font-size: 1rem;
           font-weight: 500;
           outline: none;
-          transition: border-color 0.2s, box-shadow 0.2s;
+          transition: all 0.2s ease;
           box-sizing: border-box;
           -webkit-appearance: none;
+          min-height: 48px;
         }
 
         .jr-input::placeholder { color: var(--text-faint); font-weight: 400; }
-        .jr-input:focus { border-color: var(--red); box-shadow: 0 0 0 3px var(--red-glow); }
+        .jr-input:hover { border-color: rgba(180, 60, 40, 0.2); }
+        .jr-input:focus { 
+          border-color: var(--red); 
+          box-shadow: 0 0 0 4px var(--red-glow);
+          background: var(--bg-body);
+        }
+        .jr-input.input-error {
+          border-color: #dc2626;
+          box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
+        }
 
         .jr-btn {
           width: 100%;
-          padding: 0.75rem 1rem;
+          padding: 0.875rem 1.5rem;
           background: var(--red);
           color: #fff;
           border: none;
           border-radius: 12px;
           font-family: 'DM Sans', sans-serif;
-          font-size: 0.92rem;
-          font-weight: 700;
+          font-size: 1rem;
+          font-weight: 600;
           cursor: pointer;
           transition: all 0.2s ease;
           margin-top: 0.5rem;
           letter-spacing: -0.01em;
-          box-shadow: 0 2px 14px var(--red-glow);
+          box-shadow: 0 4px 14px rgba(200, 0, 10, 0.25);
+          min-height: 48px;
         }
 
         .jr-btn:hover:not(:disabled) {
           background: var(--red2);
-          box-shadow: 0 4px 22px var(--red-glow);
+          box-shadow: 0 6px 20px rgba(200, 0, 10, 0.35);
           transform: translateY(-1px);
         }
 
         .jr-btn:active:not(:disabled) { transform: translateY(0); }
-        .jr-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .jr-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        
+        /* Secondary button style */
+        .jr-btn-secondary {
+          background: var(--bg-card);
+          color: var(--text-main);
+          border: 2px solid var(--border);
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+        }
+        .jr-btn-secondary:hover:not(:disabled) {
+          background: var(--bg-input);
+          border-color: var(--red);
+          color: var(--red);
+        }
 
         .jr-helper {
           font-size: 0.75rem;

@@ -148,55 +148,92 @@ export default function Reservations({ user }) {
         onClose={() => setToast({ message: "", type: "success" })}
       />
 
-      <div className="grid md:grid-cols-2 gap-6">
-        {/* Book form */}
-        <div className="card p-5 md:p-8">
-          <h2 className="text-2xl md:text-3xl font-black">Book a Table</h2>
-          <p className="mt-1 text-sm" style={{ color: "var(--text-muted)" }}>
-            Reserve your preferred time and we'll keep things ready.
-          </p>
+      {/* Page Header */}
+      <div className="mb-8 text-center md:text-left">
+        <h1 className="text-3xl md:text-4xl font-black mb-2">Reservations</h1>
+        <p className="text-lg" style={{ color: "var(--text-muted)" }}>
+          Book your table and manage your reservations
+        </p>
+      </div>
 
-          <div className="mt-5 space-y-3">
-            <div>
-              <label className="block text-xs font-semibold mb-1" style={{ color: "var(--text-muted)" }}>Date</label>
-              <input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+      <div className="grid lg:grid-cols-2 gap-6">
+        {/* Book form */}
+        <div className="card card-large">
+          <div className="flex items-center gap-3 mb-6">
+            <div 
+              className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl"
+              style={{ background: "rgba(200, 0, 10, 0.1)" }}
+            >
+              📅
             </div>
             <div>
-              <label className="block text-xs font-semibold mb-1" style={{ color: "var(--text-muted)" }}>Time</label>
-              <input className="input" type="time" value={time} onChange={(e) => setTime(e.target.value)} />
+              <h2 className="text-xl font-bold">Book a Table</h2>
+              <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+                Fill in your details to reserve
+              </p>
             </div>
-            <div>
-              <label className="block text-xs font-semibold mb-1" style={{ color: "var(--text-muted)" }}>
-                Guests (Max: {maxPartySize})
-              </label>
+          </div>
+
+          <div className="space-y-4">
+            <div className="form-group mb-0">
+              <label className="form-label">Date</label>
               <input 
                 className="input" 
+                type="date" 
+                value={date} 
+                onChange={(e) => setDate(e.target.value)} 
+              />
+            </div>
+            
+            <div className="form-group mb-0">
+              <label className="form-label">Time</label>
+              <input 
+                className="input" 
+                type="time" 
+                value={time} 
+                onChange={(e) => setTime(e.target.value)} 
+              />
+            </div>
+            
+            <div className="form-group mb-0">
+              <label className="form-label">
+                Party Size (Max: {maxPartySize})
+              </label>
+              <input 
+                className={`input ${partyError ? "input-error" : ""}`}
                 type="number" 
                 min="1" 
                 max={maxPartySize} 
                 value={party} 
                 onChange={(e) => setParty(e.target.value)} 
-                placeholder={`Number of guests (max ${maxPartySize})`}
-                style={partyError ? { border: "2px solid #ef4444" } : {}}
+                placeholder={`Number of guests`}
               />
               {partyError && (
-                <div className="text-xs mt-1" style={{ color: "#ef4444" }}>
-                  ⚠️ {partyError}
+                <div className="form-error">
+                  <span>⚠️</span> {partyError}
                 </div>
               )}
             </div>
-            <div>
-              <label className="block text-xs font-semibold mb-1" style={{ color: "var(--text-muted)" }}>Area</label>
+            
+            <div className="form-group mb-0">
+              <label className="form-label">Seating Area</label>
               <select className="input" value={area} onChange={(e) => setArea(e.target.value)}>
-                <option value="">Area preference (optional)</option>
-                <option value="indoor">Indoor</option>
-                <option value="outdoor">Outdoor</option>
-                <option value="vip">VIP</option>
+                <option value="">Select area (optional)</option>
+                <option value="indoor">🪴 Indoor</option>
+                <option value="outdoor">☀️ Outdoor</option>
+                <option value="vip">⭐ VIP</option>
               </select>
             </div>
-            <div>
-              <label className="block text-xs font-semibold mb-1" style={{ color: "var(--text-muted)" }}>Special Requests</label>
-              <input className="input" value={req} onChange={(e) => setReq(e.target.value)} placeholder="Optional" />
+            
+            <div className="form-group mb-0">
+              <label className="form-label">Special Requests</label>
+              <input 
+                className="input" 
+                value={req} 
+                onChange={(e) => setReq(e.target.value)} 
+                placeholder="Any special requests? (optional)" 
+              />
+              <div className="form-hint">E.g., birthday celebration, dietary restrictions</div>
             </div>
             
             {/* Pre-order Menu Section */}
@@ -254,35 +291,61 @@ export default function Reservations({ user }) {
               </div>
             )}
             
-            <button className="btn btn-red w-full py-3 mt-4" onClick={createReservation}>
-              Confirm Reservation
+            <button 
+              className="btn btn-primary btn-lg w-full mt-4" 
+              onClick={createReservation}
+              disabled={!!partyError}
+            >
+              <span>✓</span> Confirm Reservation
             </button>
           </div>
         </div>
 
         {/* My reservations */}
-        <div className="card p-5 md:p-8">
-          <div className="flex items-center">
-            <h3 className="text-xl font-black">My Reservations</h3>
-            <button className="ml-auto btn btn-outline" onClick={load}>Refresh</button>
+        <div className="card card-large">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div 
+                className="w-10 h-10 rounded-xl flex items-center justify-center text-xl"
+                style={{ background: "var(--bg-input)" }}
+              >
+                📋
+              </div>
+              <div>
+                <h2 className="text-xl font-bold">My Reservations</h2>
+                <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+                  {list.length} {list.length === 1 ? "reservation" : "reservations"}
+                </p>
+              </div>
+            </div>
+            <button className="btn btn-secondary btn-sm" onClick={load}>
+              🔄 Refresh
+            </button>
           </div>
 
-          <div className="mt-4 space-y-3">
+          <div className="space-y-3">
             {list.length === 0 && (
-              <div className="rounded-2xl p-4 text-sm" style={{ background: "var(--bg-subtle)", border: "1px solid var(--border)", color: "var(--text-muted)" }}>
-                No reservations yet. Create your first booking today.
+              <div className="empty-state py-8">
+                <div className="empty-state-icon">📭</div>
+                <h3 className="empty-state-title">No reservations yet</h3>
+                <p className="empty-state-desc">
+                  Create your first booking to see it here.
+                </p>
               </div>
             )}
 
             {list.map((r) => (
-              <div key={r.id} className="rounded-2xl p-4" style={{ background: "var(--bg-input)", border: "1px solid var(--border)" }}>
-                {/* Top row */}
-                <div className="flex flex-wrap gap-2 items-center mb-2">
-                  <div className="font-bold text-sm">{r.date} · {r.time}</div>
-                  <span className="text-xs px-2 py-1 rounded-full bg-black/5">Party {r.party_size}</span>
-                  <span className="text-xs px-2 py-1 rounded-full" style={{ background: "var(--bg-subtle)", color: "var(--text-muted)" }}>{r.status}</span>
+              <div key={r.id} className="p-4 rounded-xl border transition-all hover:border-[var(--red)]/30" style={{ background: "var(--bg-input)", borderColor: "var(--border)" }}>
+                {/* Top row - Date & Status */}
+                <div className="flex flex-wrap items-center gap-2 mb-3">
+                  <div className="font-bold">{r.date} · {r.time}</div>
+                  <span className="badge badge-sm badge-secondary">Party of {r.party_size}</span>
+                  {r.status === "confirmed" && <span className="badge badge-sm badge-success">Confirmed</span>}
+                  {r.status === "pending" && <span className="badge badge-sm badge-warning">Pending</span>}
+                  {r.status === "cancelled" && <span className="badge badge-sm badge-error">Cancelled</span>}
+                  {r.status === "checked_in" && <span className="badge badge-sm badge-info">Checked In</span>}
                   {r.table_name && (
-                    <span className="text-xs px-2 py-1 rounded-full" style={{ background: "var(--bg-subtle)", color: "var(--text-muted)" }}>
+                    <span className="badge badge-sm badge-secondary">
                       Table {r.table_name}
                     </span>
                   )}
@@ -333,14 +396,20 @@ export default function Reservations({ user }) {
                   </div>
                 )}
 
-                {/* Buttons */}
-                <div className="flex flex-col sm:flex-row gap-2 mt-2">
-                  <button className="btn btn-outline w-full sm:w-auto text-sm py-2" onClick={() => receipt(r.id)}>
-                    📄 Receipt PDF
+                {/* Action Buttons */}
+                <div className="flex flex-wrap gap-2 mt-3">
+                  <button 
+                    className="btn btn-secondary btn-sm" 
+                    onClick={() => receipt(r.id)}
+                  >
+                    <span>📄</span> Receipt
                   </button>
-                  {r.status !== "cancelled" && (
-                    <button className="btn btn-outline w-full sm:w-auto text-sm py-2" onClick={() => cancel(r.id)}>
-                      ✕ Cancel
+                  {r.status !== "cancelled" && r.status !== "checked_in" && (
+                    <button 
+                      className="btn btn-outline btn-sm" 
+                      onClick={() => cancel(r.id)}
+                    >
+                      <span>✕</span> Cancel
                     </button>
                   )}
                 </div>
