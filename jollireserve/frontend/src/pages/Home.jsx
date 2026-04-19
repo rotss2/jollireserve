@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import * as api from "../lib/api";
+import { SkeletonLoader, CardSkeleton, FullPageLoader, LoadingDots } from "../components/LoadingStates";
 
 export default function Home({ user }) {
   const isAdmin = user?.role === "admin";
@@ -48,6 +49,11 @@ export default function Home({ user }) {
 
   const hasActiveBooking = activeReservation || activeQueue;
 
+  // Show full page loader while checking user status
+  if (loading && user && !isAdmin) {
+    return <FullPageLoader message="Checking your reservations..." />;
+  }
+
   return (
     <div className="mx-auto max-w-6xl px-4 pb-16 pt-6">
       
@@ -57,34 +63,38 @@ export default function Home({ user }) {
           {/* Left: Content */}
           <div className="order-2 lg:order-1">
             {/* Badge - Context */}
-            <div className="badge badge-md badge-secondary mb-6">
-              🍽️ Restaurant Management System
-            </div>
+            {loading ? (
+              <SkeletonLoader width="w-32" height="h-6" className="mb-6" />
+            ) : (
+              <div className="badge badge-md badge-secondary mb-6">
+                🍽️ Restaurant Management System
+              </div>
+            )}
             
-            {/* Headline - Primary Focus */}
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-black leading-tight mb-6">
+            {/* Headline - Primary Focus - Mobile Optimized */}
+            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black leading-tight mb-6">
               {isAdmin ? (
                 <>
                   <span style={{ color: "var(--red)" }}>Admin</span> Dashboard
                 </>
               ) : (
                 <>
-                  Skip the Wait, <br />
+                  Skip the Wait, <br className="hidden sm:block" />
                   <span style={{ color: "var(--red)" }}>Savor the Moment</span>
                 </>
               )}
             </h1>
             
-            {/* Subheadline - Supporting Info */}
-            <p className="text-lg md:text-xl mb-8" style={{ color: "var(--text-muted)", maxWidth: "480px" }}>
+            {/* Subheadline - Supporting Info - Mobile Optimized */}
+            <p className="text-base sm:text-lg md:text-xl mb-8" style={{ color: "var(--text-muted)", maxWidth: "100%" }}>
               {isAdmin 
                 ? "Manage reservations, queue, and operations from one powerful dashboard."
                 : "Reserve your table or join the queue in seconds. Real-time updates, instant confirmations."
               }
             </p>
             
-            {/* CTA Buttons - Clear Action Hierarchy */}
-            <div className="flex flex-col sm:flex-row gap-4">
+            {/* CTA Buttons - Clear Action Hierarchy - Mobile Optimized */}
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 w-full sm:w-auto">
               {isAdmin ? (
                 <Link 
                   to="/admin" 
@@ -98,26 +108,28 @@ export default function Home({ user }) {
                 <>
                   <Link 
                     to="/reservations" 
-                    className="btn btn-primary btn-lg btn-icon"
+                    className="btn btn-primary btn-lg btn-icon w-full sm:w-auto"
                     style={{ justifyContent: "center" }}
                   >
                     <span>📅</span>
-                    Reserve a Table
+                    <span className="hidden sm:inline">Reserve a Table</span>
+                    <span className="sm:hidden">Reserve</span>
                   </Link>
                   <Link 
                     to="/queue" 
-                    className="btn btn-secondary btn-lg btn-icon"
+                    className="btn btn-secondary btn-lg btn-icon w-full sm:w-auto"
                     style={{ justifyContent: "center" }}
                   >
                     <span>🐝</span>
-                    Join Live Queue
+                    <span className="hidden sm:inline">Join Live Queue</span>
+                    <span className="sm:hidden">Join Queue</span>
                   </Link>
                 </>
               ) : (
                 <>
                   <Link 
                     to="/login" 
-                    className="btn btn-primary btn-lg btn-icon"
+                    className="btn btn-primary btn-lg btn-icon w-full sm:w-auto"
                     style={{ justifyContent: "center" }}
                   >
                     <span>✨</span>
@@ -125,41 +137,43 @@ export default function Home({ user }) {
                   </Link>
                   <Link 
                     to="/tv" 
-                    className="btn btn-tertiary btn-lg"
+                    className="btn btn-tertiary btn-lg w-full sm:w-auto"
                     style={{ justifyContent: "center" }}
                   >
-                    � View Live Queue
+                    <span>📺</span>
+                    <span className="hidden sm:inline">View Live Queue</span>
+                    <span className="sm:hidden">Live Queue</span>
                   </Link>
                 </>
               )}
             </div>
             
-            {/* Trust Indicators */}
+            {/* Trust Indicators - Mobile Optimized */}
             {!isAdmin && (
-              <div className="mt-8 flex flex-wrap items-center gap-6 text-sm" style={{ color: "var(--text-muted)" }}>
-                <div className="flex items-center gap-2">
-                  <span className="text-green-500">✓</span>
-                  <span>Instant Confirmation</span>
+              <div className="mt-6 sm:mt-8 grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-6 text-sm" style={{ color: "var(--text-muted)" }}>
+                <div className="flex items-center gap-2 justify-center sm:justify-start">
+                  <span className="text-green-500 text-base">✓</span>
+                  <span className="text-xs sm:text-sm">Instant Confirmation</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-green-500">✓</span>
-                  <span>Real-time Updates</span>
+                <div className="flex items-center gap-2 justify-center sm:justify-start">
+                  <span className="text-green-500 text-base">✓</span>
+                  <span className="text-xs sm:text-sm">Real-time Updates</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-green-500">✓</span>
-                  <span>No Registration Required</span>
+                <div className="flex items-center gap-2 justify-center sm:justify-start">
+                  <span className="text-green-500 text-base">✓</span>
+                  <span className="text-xs sm:text-sm">No Registration Required</span>
                 </div>
               </div>
             )}
           </div>
           
-          {/* Right: Hero Image */}
-          <div className="order-1 lg:order-2">
+          {/* Right: Hero Image - Mobile Optimized */}
+          <div className="order-1 lg:order-2 w-full lg:w-auto">
             <div className="card card-large overflow-hidden" style={{ padding: 0 }}>
               <img
                 alt="Delicious food at restaurant"
                 className="w-full object-cover"
-                style={{ height: "320px", minHeight: "320px" }}
+                style={{ height: "240px", sm: "280px", md: "320px", minHeight: "240px" }}
                 src="https://images.unsplash.com/photo-1529692236671-f1f6cf9683ba?auto=format&fit=crop&w=1200&q=60"
               />
             </div>
@@ -167,39 +181,41 @@ export default function Home({ user }) {
         </div>
       </section>
 
-      {/* ACTIVE BOOKING ALERT - Shows if user has reservation or queue */}
+      {/* ACTIVE BOOKING ALERT - Shows if user has reservation or queue - Mobile Optimized */}
       {user && !isAdmin && hasActiveBooking && (
         <section className="mb-6 animate-fade-in">
-          <div className="card-premium p-5 border-l-4 border-[var(--red)] bg-gradient-to-r from-[var(--red-glow)] to-transparent">
-            <div className="flex items-start gap-4">
-              <div className="w-12 h-12 rounded-full bg-[var(--red)]/10 flex items-center justify-center flex-shrink-0">
-                <span className="text-2xl">📋</span>
+          <div className="card-premium p-4 sm:p-5 border-l-4 border-[var(--red)] bg-gradient-to-r from-[var(--red-glow)] to-transparent">
+            <div className="flex flex-col sm:flex-row sm:items-start gap-3 sm:gap-4">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-[var(--red)]/10 flex items-center justify-center flex-shrink-0 mx-auto sm:mx-0">
+                <span className="text-xl sm:text-2xl">📋</span>
               </div>
-              <div className="flex-1">
-                <h3 className="font-bold text-lg mb-1">You have an active booking!</h3>
-                <p className="text-sm text-[var(--text-muted)] mb-3">
+              <div className="flex-1 text-center sm:text-left">
+                <h3 className="font-bold text-base sm:text-lg mb-1">You have an active booking!</h3>
+                <p className="text-xs sm:text-sm text-[var(--text-muted)] mb-3">
                   You already have an active {activeReservation && activeQueue ? 'reservation AND queue spot' : activeReservation ? 'reservation' : 'queue spot'}.
                 </p>
                 
-                <div className="flex flex-wrap gap-3">
+                <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 justify-center sm:justify-start">
                   {activeReservation && (
                     <Link 
                       to="/reservations" 
-                      className="btn btn-primary btn-sm flex items-center gap-2"
+                      className="btn btn-primary btn-sm flex items-center gap-2 w-full sm:w-auto justify-center"
                     >
                       <span>📅</span>
-                      View Reservation
+                      <span className="hidden sm:inline">View Reservation</span>
+                      <span className="sm:hidden">Reservation</span>
                       <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
                     </Link>
                   )}
                   {activeQueue && (
                     <Link 
                       to="/queue" 
-                      className="btn btn-secondary btn-sm flex items-center gap-2"
+                      className="btn btn-secondary btn-sm flex items-center gap-2 w-full sm:w-auto justify-center"
                     >
                       <span>🐝</span>
-                      View Queue #{activeQueue.position}
-                      <span className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse" />
+                      <span className="hidden sm:inline">View Queue Status</span>
+                      <span className="sm:hidden">Queue Status</span>
+                      <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
                     </Link>
                   )}
                 </div>
