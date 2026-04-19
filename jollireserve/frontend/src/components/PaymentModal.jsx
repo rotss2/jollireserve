@@ -88,11 +88,7 @@ export default function PaymentModal({ isOpen, onClose, amount, itemName, onSucc
   const [progress, setProgress] = useState(0);
   const [demoMode, setDemoMode] = useState(true);
 
-  // Debug logging
-  console.log('PaymentModal - isOpen:', isOpen);
-  console.log('PaymentModal - amount:', amount);
-  console.log('PaymentModal - itemName:', itemName);
-
+  
   useEffect(() => {
     if (isOpen) {
       setStep('select');
@@ -122,9 +118,17 @@ export default function PaymentModal({ isOpen, onClose, amount, itemName, onSucc
     
     const method = PAYMENT_METHODS.find(m => m.id === selectedMethod);
     
-    // Try to open the app (this is the demo feature)
-    if (method.appScheme && !demoMode) {
+    // Always try to open the app in demo mode (safe - no real payment)
+    if (method.appScheme) {
+      // Try to open the app
       window.location.href = method.appScheme;
+      
+      // Fallback to web if app doesn't open after 1 second
+      setTimeout(() => {
+        if (method.webUrl) {
+          window.open(method.webUrl, '_blank');
+        }
+      }, 1000);
     }
     
     setStep('processing');
@@ -228,13 +232,17 @@ export default function PaymentModal({ isOpen, onClose, amount, itemName, onSucc
                 disabled={!selectedMethod}
                 className="btn btn-primary btn-lg w-full mt-6 btn-ripple"
               >
-                {demoMode ? '🔒 Pay with Demo' : `Pay ₱${amount?.toLocaleString()}`}
+                {selectedMethod === 'gcash' && '📱 Open GCash App (Demo)'}
+                {selectedMethod === 'maya' && '� Open Maya App (Demo)'}
+                {selectedMethod === 'grabpay' && '🟢 Open GrabPay App (Demo)'}
+                {selectedMethod === 'card' && '💳 Enter Card Details (Demo)'}
+                {!selectedMethod && 'Select Payment Method'}
               </button>
 
               <p className="text-xs text-center text-[var(--text-muted)] mt-4">
-                {demoMode 
-                  ? "This is a demo. No real money will be deducted."
-                  : "You will be redirected to complete payment securely."
+                {selectedMethod && selectedMethod !== 'card'
+                  ? "We'll open the payment app for you. No real transaction will occur."
+                  : "This is a demo. No real money will be deducted."
                 }
               </p>
             </>

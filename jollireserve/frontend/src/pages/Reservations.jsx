@@ -105,18 +105,11 @@ export default function Reservations({ user }) {
         return item ? { id, name: item.name, price: item.price, quantity: qty } : null;
       }).filter(Boolean);
 
-    // Debug logging
-    console.log('DEBUG - Selected Items:', selectedItems);
-    console.log('DEBUG - Pre-order Items:', preOrderItems);
-    console.log('DEBUG - Pre-order Items Length:', preOrderItems.length);
-
     // Calculate total for pre-order items
     const preOrderTotal = preOrderItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-    console.log('DEBUG - Pre-order Total:', preOrderTotal);
 
     // If there are pre-order items, show payment modal first
     if (preOrderItems.length > 0) {
-      console.log('DEBUG - Showing payment modal');
       const reservationData = {
         date, time, party_size: Number(party),
         area_pref: area || null,
