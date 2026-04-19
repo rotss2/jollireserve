@@ -1,5 +1,47 @@
 import { useState, useEffect } from 'react';
-import { X, Wallet, CreditCard, Smartphone, CheckCircle, Loader2 } from 'lucide-react';
+
+// Custom SVG components to replace lucide-react
+const XIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <line x1="18" y1="6" x2="6" y2="18"></line>
+    <line x1="6" y1="6" x2="18" y2="18"></line>
+  </svg>
+);
+
+const WalletIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"></path>
+    <path d="M3 5v14a2 2 0 0 0 2 2h16v-5"></path>
+    <path d="M18 12a2 2 0 0 0 0 4h4v-4h-4z"></path>
+  </svg>
+);
+
+const CreditCardIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect>
+    <line x1="1" y1="10" x2="23" y2="10"></line>
+  </svg>
+);
+
+const SmartphoneIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+    <line x1="12" y1="18" x2="12.01" y2="18"></line>
+  </svg>
+);
+
+const CheckCircleIcon = () => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+    <polyline points="22 4 12 14.01 9 11.01"></polyline>
+  </svg>
+);
+
+const LoaderIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M21 12a9 9 0 11-6.219-8.56"></path>
+  </svg>
+);
 
 const PAYMENT_METHODS = [
   {
@@ -109,8 +151,8 @@ export default function PaymentModal({ isOpen, onClose, amount, itemName, onSucc
         <div className="flex items-center justify-between p-6 border-b border-[var(--border)]">
           <div>
             <h2 className="text-xl font-black flex items-center gap-2">
-              <Wallet className="w-5 h-5 text-[var(--red)]" />
-              Payment
+              <WalletIcon />
+              <span className="text-[var(--red)]">Payment</span>
             </h2>
             <p className="text-sm text-[var(--text-muted)] mt-1">
               Complete your reservation
@@ -121,7 +163,7 @@ export default function PaymentModal({ isOpen, onClose, amount, itemName, onSucc
               onClick={onClose}
               className="p-2 hover:bg-[var(--bg-subtle)] rounded-full transition-colors"
             >
-              <X className="w-5 h-5" />
+              <XIcon />
             </button>
           )}
         </div>
@@ -169,7 +211,7 @@ export default function PaymentModal({ isOpen, onClose, amount, itemName, onSucc
                       <p className="text-xs text-[var(--text-muted)]">{method.description}</p>
                     </div>
                     {selectedMethod === method.id && (
-                      <CheckCircle className="w-5 h-5 text-[var(--red)]" />
+                      <CheckCircleIcon />
                     )}
                   </button>
                 ))}
@@ -219,7 +261,7 @@ export default function PaymentModal({ isOpen, onClose, amount, itemName, onSucc
                   />
                 </svg>
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <Loader2 className="w-8 h-8 text-[var(--red)] animate-spin" />
+                  <LoaderIcon className="w-8 h-8 text-[var(--red)] animate-spin" />
                 </div>
               </div>
               
@@ -250,7 +292,7 @@ export default function PaymentModal({ isOpen, onClose, amount, itemName, onSucc
           {step === 'success' && (
             <div className="text-center py-8 animate-scale-in">
               <div className="w-20 h-20 mx-auto mb-6 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
-                <CheckCircle className="w-10 h-10 text-green-500" />
+                <CheckCircleIcon className="w-10 h-10 text-green-500" />
               </div>
               
               <p className="font-black text-2xl mb-2">Payment Successful!</p>
