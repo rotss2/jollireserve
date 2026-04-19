@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { X, ArrowRight, ArrowLeft, Check } from 'lucide-react';
 
 // Custom SVG icons to replace lucide-react
 const XIcon = () => (

@@ -8,7 +8,19 @@ export const BarChart = ({
   height = 200,
   className = ''
 }) => {
-  const maxValue = Math.max(...data.map(item => item.value));
+  // Handle empty data safely
+  if (!data || !Array.isArray(data) || data.length === 0) {
+    return (
+      <div className={`card p-4 ${className}`}>
+        <h3 className="font-bold text-lg mb-4">{title}</h3>
+        <div className="flex items-center justify-center" style={{ height }}>
+          <p className="text-gray-500 dark:text-gray-400">No data available</p>
+        </div>
+      </div>
+    );
+  }
+
+  const maxValue = Math.max(...data.map(item => item.value || 0), 1); // Default to 1 to prevent division by zero
   
   return (
     <div className={`card p-4 ${className}`}>
@@ -48,7 +60,19 @@ export const LineChart = ({
   height = 200,
   className = ''
 }) => {
-  const maxValue = Math.max(...data.map(item => item.value));
+  // Handle empty data safely
+  if (!data || !Array.isArray(data) || data.length === 0) {
+    return (
+      <div className={`card p-4 ${className}`}>
+        <h3 className="font-bold text-lg mb-4">{title}</h3>
+        <div className="flex items-center justify-center" style={{ height }}>
+          <p className="text-gray-500 dark:text-gray-400">No data available</p>
+        </div>
+      </div>
+    );
+  }
+
+  const maxValue = Math.max(...data.map(item => item.value || 0), 1); // Default to 1 to prevent division by zero
   const points = data.map((item, index) => {
     const x = (index / (data.length - 1)) * 100;
     const y = 100 - (item.value / maxValue) * 100;
@@ -117,7 +141,31 @@ export const PieChart = ({
   title, 
   className = ''
 }) => {
-  const total = data.reduce((sum, item) => sum + item.value, 0);
+  // Handle empty data safely
+  if (!data || !Array.isArray(data) || data.length === 0) {
+    return (
+      <div className={`card p-4 ${className}`}>
+        <h3 className="font-bold text-lg mb-4">{title}</h3>
+        <div className="flex items-center justify-center py-8">
+          <p className="text-gray-500 dark:text-gray-400">No data available</p>
+        </div>
+      </div>
+    );
+  }
+
+  const total = data.reduce((sum, item) => sum + (item.value || 0), 0);
+  
+  // Handle case where total is 0
+  if (total === 0) {
+    return (
+      <div className={`card p-4 ${className}`}>
+        <h3 className="font-bold text-lg mb-4">{title}</h3>
+        <div className="flex items-center justify-center py-8">
+          <p className="text-gray-500 dark:text-gray-400">No data to display</p>
+        </div>
+      </div>
+    );
+  }
   let currentAngle = 0;
   
   const colors = [
@@ -233,6 +281,10 @@ export const AnalyticsDashboard = ({
   queue = [], 
   className = ''
 }) => {
+  // Validate input data
+  const safeReservations = Array.isArray(reservations) ? reservations : [];
+  const safeQueue = Array.isArray(queue) ? queue : [];
+
   // Process data for charts
   const today = new Date();
   const last7Days = Array.from({ length: 7 }, (_, i) => {
@@ -241,51 +293,69 @@ export const AnalyticsDashboard = ({
     return date;
   });
 
-  // Reservation trends
+  // Reservation trends with safe filtering
   const reservationTrends = last7Days.map(date => {
-    const count = reservations.filter(r => {
-      const rDate = new Date(r.date);
-      return rDate.toDateString() === date.toDateString();
-    }).length;
-    return {
-      label: date.toLocaleDateString('en', { weekday: 'short' }),
-      value: count
-    };
+    try {
+      const count = safeReservations.filter(r => {
+        if (!r || !r.date) return false;
+        const rDate = new Date(r.date);
+        return !isNaN(rDate.getTime()) && rDate.toDateString() === date.toDateString();
+      }).length;
+      return {
+        label: date.toLocaleDateString('en', { weekday: 'short' }),
+        value: count
+      };
+    } catch (error) {
+      console.warn('Error processing reservation trends:', error);
+      return {
+        label: date.toLocaleDateString('en', { weekday: 'short' }),
+        value: 0
+      };
+    }
   });
 
-  // Peak hours data
+  // Peak hours data with safe filtering
   const peakHours = Array.from({ length: 8 }, (_, i) => {
     const hour = 11 + i; // 11 AM to 6 PM
-    const count = reservations.filter(r => {
-      const rHour = parseInt(r.time?.split(':')[0] || '0');
-      return rHour === hour;
-    }).length;
-    return {
-      label: `${hour}:00`,
-      value: count
-    };
+    try {
+      const count = safeReservations.filter(r => {
+        if (!r || !r.time) return false;
+        const rHour = parseInt(r.time.split(':')[0] || '0');
+        return !isNaN(rHour) && rHour === hour;
+      }).length;
+      return {
+        label: `${hour}:00`,
+        value: count
+      };
+    } catch (error) {
+      console.warn('Error processing peak hours:', error);
+      return {
+        label: `${hour}:00`,
+        value: 0
+      };
+    }
   });
 
-  // Party size distribution
+  // Party size distribution with safe filtering
   const partySizes = [1, 2, 3, 4, 5, 6].map(size => ({
     label: `${size} ${size === 1 ? 'person' : 'people'}`,
-    value: reservations.filter(r => r.party_size === size).length
+    value: safeReservations.filter(r => r && typeof r.party_size === 'number' && r.party_size === size).length
   }));
 
-  // Status distribution
+  // Status distribution with safe filtering
   const statusData = [
-    { label: 'Confirmed', value: reservations.filter(r => r.status === 'confirmed').length },
-    { label: 'Pending', value: reservations.filter(r => r.status === 'pending').length },
-    { label: 'Completed', value: reservations.filter(r => r.status === 'completed').length },
-    { label: 'Cancelled', value: reservations.filter(r => r.status === 'cancelled').length }
+    { label: 'Confirmed', value: safeReservations.filter(r => r && r.status === 'confirmed').length },
+    { label: 'Pending', value: safeReservations.filter(r => r && r.status === 'pending').length },
+    { label: 'Completed', value: safeReservations.filter(r => r && r.status === 'completed').length },
+    { label: 'Cancelled', value: safeReservations.filter(r => r && r.status === 'cancelled').length }
   ].filter(item => item.value > 0);
 
-  // Calculate stats
-  const totalReservations = reservations.length;
-  const activeQueue = queue.filter(q => q.status === 'waiting').length;
-  const avgPartySize = reservations.length > 0 
-    ? (reservations.reduce((sum, r) => sum + r.party_size, 0) / reservations.length).toFixed(1)
-    : 0;
+  // Calculate stats with safe data handling
+  const totalReservations = safeReservations.length;
+  const activeQueue = safeQueue.filter(q => q && q.status === 'waiting').length;
+  const avgPartySize = safeReservations.length > 0 
+    ? (safeReservations.reduce((sum, r) => sum + (r.party_size || 0), 0) / safeReservations.length).toFixed(1)
+    : '0.0';
   const todayReservations = reservationTrends[reservationTrends.length - 1]?.value || 0;
 
   return (
