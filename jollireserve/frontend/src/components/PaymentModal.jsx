@@ -145,158 +145,255 @@ export default function PaymentModal({ isOpen, onClose, amount, itemName, onSucc
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
       {/* Backdrop */}
       <div 
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/70 backdrop-blur-md"
         onClick={step !== 'processing' ? onClose : undefined}
       />
       
       {/* Modal */}
-      <div className="relative w-full max-w-md card-premium animate-scale-in">
-        {/* Demo Badge */}
-        <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-          <span className="vip-badge text-xs">DEMO MODE - NO REAL PAYMENT</span>
-        </div>
-
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-[var(--border)]">
-          <div>
-            <h2 className="text-xl font-black flex items-center gap-2">
-              <WalletIcon />
-              <span className="text-[var(--red)]">Payment</span>
-            </h2>
-            <p className="text-sm text-[var(--text-muted)] mt-1">
-              Complete your reservation
-            </p>
+      <div className="relative w-full max-w-md bg-white dark:bg-[var(--bg-card)] rounded-2xl shadow-2xl animate-scale-in overflow-hidden">
+        {/* Gradient Header */}
+        <div className="relative bg-gradient-to-r from-[var(--red)] to-red-600 p-6 text-white">
+          {/* Demo Badge */}
+          <div className="absolute top-4 right-4">
+            <span className="bg-yellow-400 text-yellow-900 text-xs font-bold px-3 py-1 rounded-full shadow-lg">
+              🔒 DEMO MODE
+            </span>
           </div>
-          {step === 'select' && (
-            <button 
-              onClick={onClose}
-              className="p-2 hover:bg-[var(--bg-subtle)] rounded-full transition-colors"
-            >
-              <XIcon />
-            </button>
-          )}
+          
+          <div className="flex items-start justify-between">
+            <div className="flex-1">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm">
+                  <WalletIcon />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold">Secure Payment</h2>
+                  <p className="text-white/90 text-sm">Complete your reservation</p>
+                </div>
+              </div>
+            </div>
+            {step === 'select' && (
+              <button 
+                onClick={onClose}
+                className="w-10 h-10 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center transition-all duration-200 backdrop-blur-sm"
+              >
+                <XIcon />
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Content */}
-        <div className="p-6">
+        <div className="p-6 space-y-6">
           {step === 'select' && (
             <>
               {/* Amount Display */}
-              <div className="text-center mb-6 p-4 bg-[var(--bg-subtle)] rounded-xl">
-                <p className="text-sm text-[var(--text-muted)] mb-1">Total Amount</p>
-                <p className="text-3xl font-black text-[var(--red)]">₱{amount?.toLocaleString()}</p>
-                <p className="text-xs text-[var(--text-muted)] mt-1">{itemName}</p>
+              <div className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-[var(--bg-subtle)] dark:to-[var(--bg-input)] rounded-2xl p-6 text-center border border-gray-200 dark:border-[var(--border)]">
+                <p className="text-sm font-medium text-gray-600 dark:text-[var(--text-muted)] mb-2">Total Amount</p>
+                <p className="text-4xl font-black text-gray-900 dark:text-[var(--text-main)] mb-1">
+                  ₱{amount?.toLocaleString()}
+                </p>
+                <div className="flex items-center justify-center gap-2">
+                  <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                  <p className="text-sm text-gray-600 dark:text-[var(--text-muted)]">{itemName}</p>
+                </div>
               </div>
 
-              {/* Demo Toggle */}
-              <div className="flex items-center justify-between mb-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
-                <span className="text-sm font-medium">🔒 Demo Mode (Safe)</span>
-                <button
-                  onClick={() => setDemoMode(!demoMode)}
-                  className={`relative w-12 h-6 rounded-full transition-colors ${
-                    demoMode ? 'bg-[var(--red)]' : 'bg-gray-300'
-                  }`}
-                >
-                  <span className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${
-                    demoMode ? 'translate-x-7' : 'translate-x-1'
-                  }`} />
-                </button>
+              {/* Security Notice */}
+              <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl p-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-green-100 dark:bg-green-800/30 rounded-full flex items-center justify-center flex-shrink-0">
+                    <span className="text-lg">🔒</span>
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-green-800 dark:text-green-200">
+                      Secure Demo Mode
+                    </p>
+                    <p className="text-xs text-green-600 dark:text-green-300">
+                      No real money will be deducted. This is a simulation.
+                    </p>
+                  </div>
+                </div>
               </div>
 
               {/* Payment Methods */}
-              <p className="text-sm font-semibold mb-3">Select Payment Method</p>
-              <div className="space-y-3">
-                {PAYMENT_METHODS.map((method) => (
-                  <button
-                    key={method.id}
-                    onClick={() => setSelectedMethod(method.id)}
-                    className={`payment-card w-full flex items-center gap-4 text-left ${
-                      selectedMethod === method.id ? 'selected' : ''
-                    }`}
-                  >
-                    <span className="text-3xl">{method.icon}</span>
-                    <div className="flex-1">
-                      <p className="font-bold">{method.name}</p>
-                      <p className="text-xs text-[var(--text-muted)]">{method.description}</p>
-                    </div>
-                    {selectedMethod === method.id && (
-                      <CheckCircleIcon />
-                    )}
-                  </button>
-                ))}
+              <div>
+                <p className="text-lg font-bold text-gray-900 dark:text-[var(--text-main)] mb-4">
+                  Choose Payment Method
+                </p>
+                <div className="grid gap-3">
+                  {PAYMENT_METHODS.map((method) => (
+                    <button
+                      key={method.id}
+                      onClick={() => setSelectedMethod(method.id)}
+                      className={`group relative w-full flex items-center gap-4 p-4 rounded-xl border-2 transition-all duration-200 ${
+                        selectedMethod === method.id
+                          ? 'border-[var(--red)] bg-[var(--red)]/5 shadow-lg scale-[1.02]'
+                          : 'border-gray-200 dark:border-[var(--border)] bg-white dark:bg-[var(--bg-card)] hover:border-gray-300 dark:hover:border-[var(--border)] hover:shadow-md'
+                      }`}
+                    >
+                      <div className={`w-14 h-14 rounded-xl flex items-center justify-center text-2xl transition-all duration-200 ${
+                        selectedMethod === method.id
+                          ? 'bg-[var(--red)]/10 shadow-inner'
+                          : 'bg-gray-100 dark:bg-[var(--bg-subtle)]'
+                      }`}>
+                        {method.icon}
+                      </div>
+                      <div className="flex-1 text-left">
+                        <p className={`font-bold text-base ${
+                          selectedMethod === method.id
+                            ? 'text-[var(--red)]'
+                            : 'text-gray-900 dark:text-[var(--text-main)]'
+                        }`}>
+                          {method.name}
+                        </p>
+                        <p className="text-sm text-gray-600 dark:text-[var(--text-muted)] mt-0.5">
+                          {method.description}
+                        </p>
+                      </div>
+                      <div className={`w-6 h-6 rounded-full border-2 transition-all duration-200 flex items-center justify-center ${
+                        selectedMethod === method.id
+                          ? 'border-[var(--red)] bg-[var(--red)]'
+                          : 'border-gray-300 dark:border-[var(--border)]'
+                      }`}>
+                        {selectedMethod === method.id && (
+                          <div className="w-2 h-2 bg-white rounded-full"></div>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {/* Pay Button */}
               <button
                 onClick={handlePayment}
                 disabled={!selectedMethod}
-                className="btn btn-primary btn-lg w-full mt-6 btn-ripple"
+                className={`w-full py-4 px-6 rounded-xl font-bold text-lg transition-all duration-200 flex items-center justify-center gap-3 ${
+                  selectedMethod
+                    ? 'bg-gradient-to-r from-[var(--red)] to-red-600 hover:from-red-600 hover:to-red-700 text-white shadow-lg hover:shadow-xl active:scale-[0.98]'
+                    : 'bg-gray-200 dark:bg-[var(--bg-subtle)] text-gray-500 dark:text-[var(--text-muted)] cursor-not-allowed'
+                }`}
               >
-                {selectedMethod === 'gcash' && '📱 Open GCash App (Demo)'}
-                {selectedMethod === 'maya' && '� Open Maya App (Demo)'}
-                {selectedMethod === 'grabpay' && '🟢 Open GrabPay App (Demo)'}
-                {selectedMethod === 'card' && '💳 Enter Card Details (Demo)'}
-                {!selectedMethod && 'Select Payment Method'}
+                {selectedMethod === 'gcash' && (
+                  <>
+                    <span className="text-xl">📱</span>
+                    <span>Open GCash App (Demo)</span>
+                  </>
+                )}
+                {selectedMethod === 'maya' && (
+                  <>
+                    <span className="text-xl">💜</span>
+                    <span>Open Maya App (Demo)</span>
+                  </>
+                )}
+                {selectedMethod === 'grabpay' && (
+                  <>
+                    <span className="text-xl">🟢</span>
+                    <span>Open GrabPay App (Demo)</span>
+                  </>
+                )}
+                {selectedMethod === 'card' && (
+                  <>
+                    <span className="text-xl">💳</span>
+                    <span>Enter Card Details (Demo)</span>
+                  </>
+                )}
+                {!selectedMethod && (
+                  <>
+                    <span className="text-xl">💳</span>
+                    <span>Select Payment Method</span>
+                  </>
+                )}
               </button>
 
-              <p className="text-xs text-center text-[var(--text-muted)] mt-4">
-                {selectedMethod && selectedMethod !== 'card'
-                  ? "We'll open the payment app for you. No real transaction will occur."
-                  : "This is a demo. No real money will be deducted."
-                }
-              </p>
+              {selectedMethod && (
+                <div className="text-center">
+                  <p className="text-xs text-gray-500 dark:text-[var(--text-muted)]">
+                    {selectedMethod !== 'card'
+                      ? "We'll open the payment app for you. No real transaction will occur."
+                      : "This is a demo. No real money will be deducted."
+                    }
+                  </p>
+                </div>
+              )}
             </>
           )}
 
           {step === 'processing' && (
             <div className="text-center py-8 animate-fade-in">
-              <div className="relative w-24 h-24 mx-auto mb-6">
-                <svg className="w-full h-full -rotate-90">
+              {/* Enhanced Progress Circle */}
+              <div className="relative w-32 h-32 mx-auto mb-8">
+                <svg className="w-full h-full -rotate-90 transform-gpu">
                   <circle
-                    cx="48"
-                    cy="48"
-                    r="44"
+                    cx="64"
+                    cy="64"
+                    r="56"
                     fill="none"
-                    stroke="var(--border)"
-                    strokeWidth="6"
+                    stroke="#e5e7eb"
+                    strokeWidth="8"
                   />
                   <circle
-                    cx="48"
-                    cy="48"
-                    r="44"
+                    cx="64"
+                    cy="64"
+                    r="56"
                     fill="none"
-                    stroke="var(--red)"
-                    strokeWidth="6"
+                    stroke="url(#gradient)"
+                    strokeWidth="8"
                     strokeLinecap="round"
-                    strokeDasharray="276"
-                    strokeDashoffset={276 - (276 * progress) / 100}
-                    className="transition-all duration-100"
+                    strokeDasharray="351.86"
+                    strokeDashoffset={351.86 - (351.86 * progress) / 100}
+                    className="transition-all duration-300 ease-out"
                   />
+                  <defs>
+                    <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor="var(--red)" />
+                      <stop offset="100%" stopColor="#dc2626" />
+                    </linearGradient>
+                  </defs>
                 </svg>
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <LoaderIcon className="w-8 h-8 text-[var(--red)] animate-spin" />
+                  <div className="text-center">
+                    <LoaderIcon className="w-10 h-10 text-[var(--red)] animate-spin mx-auto mb-1" />
+                    <p className="text-2xl font-bold text-gray-900 dark:text-[var(--text-main)]">{progress}%</p>
+                  </div>
                 </div>
               </div>
               
-              <p className="font-bold text-lg mb-2">
-                {progress < 30 && "Connecting to payment gateway..."}
-                {progress >= 30 && progress < 60 && "Verifying account..."}
-                {progress >= 60 && progress < 90 && "Processing payment..."}
-                {progress >= 90 && "Finalizing..."}
-              </p>
-              <p className="text-sm text-[var(--text-muted)]">
-                {demoMode 
-                  ? "Simulating payment flow..."
-                  : "Please don't close this window"
-                }
-              </p>
+              {/* Status Messages */}
+              <div className="space-y-3">
+                <p className="text-xl font-bold text-gray-900 dark:text-[var(--text-main)]">
+                  {progress < 30 && "🔗 Connecting to payment gateway..."}
+                  {progress >= 30 && progress < 60 && "🔍 Verifying account..."}
+                  {progress >= 60 && progress < 90 && "💳 Processing payment..."}
+                  {progress >= 90 && "✨ Finalizing..."}
+                </p>
+                <p className="text-sm text-gray-600 dark:text-[var(--text-muted)]">
+                  {demoMode 
+                    ? "Simulating secure payment flow..."
+                    : "Please don't close this window"
+                  }
+                </p>
+              </div>
 
-              {/* Simulated GCash App Opening */}
-              {selectedMethod === 'gcash' && progress > 20 && progress < 80 && (
-                <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800 animate-fade-in">
-                  <p className="text-sm text-blue-700 dark:text-blue-300">
-                    📱 Opening GCash app...
-                  </p>
+              {/* App Opening Status */}
+              {selectedMethod && selectedMethod !== 'card' && progress > 20 && progress < 80 && (
+                <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl border border-blue-200 dark:border-blue-800 animate-fade-in">
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">
+                      {selectedMethod === 'gcash' && '📱'}
+                      {selectedMethod === 'maya' && '💜'}
+                      {selectedMethod === 'grabpay' && '🟢'}
+                    </span>
+                    <div className="text-left">
+                      <p className="text-sm font-semibold text-blue-800 dark:text-blue-200">
+                        Opening {PAYMENT_METHODS.find(m => m.id === selectedMethod)?.name} app...
+                      </p>
+                      <p className="text-xs text-blue-600 dark:text-blue-300">
+                        Please switch to the app to complete (demo)
+                      </p>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
@@ -304,30 +401,38 @@ export default function PaymentModal({ isOpen, onClose, amount, itemName, onSucc
 
           {step === 'success' && (
             <div className="text-center py-8 animate-scale-in">
-              <div className="w-20 h-20 mx-auto mb-6 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
-                <CheckCircleIcon className="w-10 h-10 text-green-500" />
+              {/* Success Animation */}
+              <div className="relative w-24 h-24 mx-auto mb-8">
+                <div className="absolute inset-0 bg-gradient-to-r from-green-400 to-emerald-500 rounded-full animate-pulse"></div>
+                <div className="absolute inset-2 bg-white dark:bg-[var(--bg-card)] rounded-full flex items-center justify-center">
+                  <CheckCircleIcon className="w-12 h-12 text-green-500" />
+                </div>
               </div>
               
-              <p className="font-black text-2xl mb-2">Payment Successful!</p>
-              <p className="text-[var(--text-muted)] mb-6">
-                {demoMode 
-                  ? "Demo payment completed. No real transaction occurred."
-                  : "Your payment has been processed successfully."
-                }
-              </p>
-
-              <div className="bg-[var(--bg-subtle)] rounded-xl p-4 mb-6">
-                <div className="flex justify-between text-sm mb-2">
-                  <span className="text-[var(--text-muted)]">Amount Paid</span>
-                  <span className="font-bold">₱{amount?.toLocaleString()}</span>
+              <div className="space-y-4">
+                <p className="font-black text-3xl text-gray-900 dark:text-[var(--text-main)]">
+                  Payment Successful!
+                </p>
+                <p className="text-gray-600 dark:text-[var(--text-muted)] px-4">
+                  {demoMode 
+                    ? "Demo payment completed successfully. No real transaction occurred."
+                    : "Your payment has been processed successfully."
+                  }
+                </p>
+                
+                {/* Success Details */}
+                <div className="bg-green-50 dark:bg-green-900/20 rounded-xl p-4 mx-4 border border-green-200 dark:border-green-800">
+                  <div className="flex items-center justify-center gap-2 mb-2">
+                    <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                    <p className="text-sm font-semibold text-green-800 dark:text-green-200">
+                      Reservation Confirmed
+                    </p>
+                  </div>
+                  <p className="text-xs text-green-600 dark:text-green-300">
+                    ₱{amount?.toLocaleString()} paid • {itemName}
+                  </p>
                 </div>
-                <div className="flex justify-between text-sm mb-2">
-                  <span className="text-[var(--text-muted)]">Method</span>
-                  <span className="font-bold">
-                    {PAYMENT_METHODS.find(m => m.id === selectedMethod)?.name}
-                  </span>
-                </div>
-                <div className="flex justify-between text-sm">
+                <div className="flex justify-between text-sm px-4">
                   <span className="text-[var(--text-muted)]">Reference</span>
                   <span className="font-mono text-xs">REF-{Date.now().toString().slice(-8)}</span>
                 </div>
@@ -335,9 +440,9 @@ export default function PaymentModal({ isOpen, onClose, amount, itemName, onSucc
 
               <button
                 onClick={handleSuccess}
-                className="btn btn-primary btn-lg w-full"
+                className="w-full py-4 px-6 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold text-lg rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 active:scale-[0.98]"
               >
-                Continue to Reservation
+                View Reservation Details
               </button>
             </div>
           )}
