@@ -88,6 +88,11 @@ export default function PaymentModal({ isOpen, onClose, amount, itemName, onSucc
   const [progress, setProgress] = useState(0);
   const [demoMode, setDemoMode] = useState(true);
 
+  // Debug logging
+  console.log('PaymentModal - isOpen:', isOpen);
+  console.log('PaymentModal - amount:', amount);
+  console.log('PaymentModal - itemName:', itemName);
+
   useEffect(() => {
     if (isOpen) {
       setStep('select');
