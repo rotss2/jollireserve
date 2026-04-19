@@ -4,6 +4,7 @@ import { api } from "../lib/api";
 import { connectWS, onWSMessage } from "../lib/ws";
 import { useSettings } from "../contexts/SettingsContext";
 import QRCode from "qrcode";
+import PaymentModal from "../components/PaymentModal";
 
 function downloadBlob(blob, filename) {
   const url = window.URL.createObjectURL(blob);
@@ -51,6 +52,8 @@ export default function Reservations({ user }) {
   const [activeReservation, setActiveReservation] = useState(null);
   const [expandedQR, setExpandedQR] = useState(null); // reservation id with QR open
   const [partyError, setPartyError] = useState(null);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [pendingReservation, setPendingReservation] = useState(null);
   
   // Menu pre-order state
   const [menuItems, setMenuItems] = useState([]);
@@ -102,12 +105,29 @@ export default function Reservations({ user }) {
         return item ? { id, name: item.name, price: item.price, quantity: qty } : null;
       }).filter(Boolean);
 
+    // Calculate total for pre-order items
+    const preOrderTotal = preOrderItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+
+    // If there are pre-order items, show payment modal first
+    if (preOrderItems.length > 0) {
+      const reservationData = {
+        date, time, party_size: Number(party),
+        area_pref: area || null,
+        special_requests: req || null,
+        pre_order_items: preOrderItems
+      };
+      setPendingReservation(reservationData);
+      setShowPaymentModal(true);
+      return;
+    }
+
+    // No pre-order items, create reservation directly
     try {
       await api.createReservation({
         date, time, party_size: Number(party),
         area_pref: area || null,
         special_requests: req || null,
-        pre_order_items: preOrderItems.length > 0 ? preOrderItems : null,
+        pre_order_items: null,
       });
       setToast({ message: "Reservation confirmed!", type: "success" });
       setDate(""); setTime(""); setReq(""); setSelectedItems({});
@@ -121,6 +141,30 @@ export default function Reservations({ user }) {
       }
     }
   }
+
+  // Handle successful payment
+  const handlePaymentSuccess = async () => {
+    try {
+      if (!pendingReservation) return;
+      
+      await api.createReservation(pendingReservation);
+      setToast({ message: "Reservation confirmed with pre-order payment!", type: "success" });
+      setDate(""); setTime(""); setReq(""); setSelectedItems({});
+      setPendingReservation(null);
+      setShowPaymentModal(false);
+      await load();
+    } catch (e) {
+      setToast({ message: e.message || "Failed to create reservation", type: "error" });
+      setShowPaymentModal(false);
+      setPendingReservation(null);
+    }
+  };
+
+  // Handle payment modal close
+  const handlePaymentClose = () => {
+    setShowPaymentModal(false);
+    setPendingReservation(null);
+  };
 
   async function cancel(id) {
     try {
@@ -496,6 +540,15 @@ export default function Reservations({ user }) {
           </div>
         </div>
       </div>
+
+      {/* Payment Modal for Pre-orders */}
+      <PaymentModal
+        isOpen={showPaymentModal}
+        onClose={handlePaymentClose}
+        amount={pendingReservation?.pre_order_items?.reduce((sum, item) => sum + (item.price * item.quantity), 0) || 0}
+        itemName="Pre-order Food"
+        onSuccess={handlePaymentSuccess}
+      />
     </div>
   );
 }
