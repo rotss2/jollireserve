@@ -4,6 +4,7 @@ import { ProgressStepper, CompactProgressStepper, VerticalProgressStepper } from
 import { ErrorBoundary } from './ErrorBoundary';
 import { RealtimeStatusIndicator } from './RealtimeStatusIndicator';
 import { apiService } from '../services/apiService';
+import { Icon } from './Icon';
 
 // Import step components (will be created next)
 import { BookingPreference } from './bookingSteps/BookingPreference';
@@ -217,10 +218,12 @@ export const SmartBookingFlow = ({ user, onComplete, onClose, initialStep = 0 })
 
   if (!bookingState || !CurrentComponent) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-screen bg-[var(--color-canvas)]">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading booking flow...</p>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--color-brand)] mx-auto mb-4"></div>
+          <p className="text-[var(--color-text-secondary)]" style={{ fontSize: 'var(--text-sm)' }}>
+            Loading booking flow...
+          </p>
         </div>
       </div>
     );
@@ -232,7 +235,7 @@ export const SmartBookingFlow = ({ user, onComplete, onClose, initialStep = 0 })
         {/* Header */}
         <div className="mb-6">
           <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold text-gray-900">
+            <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">
               Book Your Table
             </h1>
             
@@ -240,12 +243,10 @@ export const SmartBookingFlow = ({ user, onComplete, onClose, initialStep = 0 })
             {onClose && (
               <button
                 onClick={onClose}
-                className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
+                className="p-2 text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] hover:bg-[var(--color-overlay)] rounded-full transition-all"
                 aria-label="Close booking"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                <Icon name="close" size={20} />
               </button>
             )}
           </div>
@@ -269,7 +270,7 @@ export const SmartBookingFlow = ({ user, onComplete, onClose, initialStep = 0 })
               currentStep={currentStep}
             />
             <div className="text-center mt-2">
-              <span className="text-sm text-gray-600">
+              <span className="text-sm text-[var(--color-text-secondary)]">
                 Step {currentStep + 1} of {steps.length}: {steps[currentStep].title}
               </span>
             </div>
@@ -285,26 +286,22 @@ export const SmartBookingFlow = ({ user, onComplete, onClose, initialStep = 0 })
 
         {/* Error Display */}
         {error && (
-          <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="mb-6 bg-[var(--color-danger-light)] border border-[var(--color-danger)] rounded-[var(--radius-md)] p-4">
             <div className="flex items-start">
               <div className="flex-shrink-0">
-                <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                </svg>
+                <Icon name="error" size={20} color="var(--color-danger)" />
               </div>
               <div className="ml-3 flex-1">
-                <p className="text-sm text-red-800">{error}</p>
+                <p className="text-sm text-[var(--color-danger)]">{error}</p>
               </div>
               <div className="ml-auto pl-3">
                 <div className="-mx-1.5 -my-1.5">
                   <button
                     onClick={handleDismissError}
-                    className="inline-flex bg-red-50 rounded-md p-1.5 text-red-500 hover:bg-red-100 transition-colors"
+                    className="inline-flex bg-[var(--color-danger-light)] rounded-md p-1.5 text-[var(--color-danger)] hover:bg-[var(--color-danger)] hover:text-white transition-colors"
                   >
                     <span className="sr-only">Dismiss</span>
-                    <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                    </svg>
+                    <Icon name="close" size={20} />
                   </button>
                 </div>
               </div>
@@ -316,9 +313,19 @@ export const SmartBookingFlow = ({ user, onComplete, onClose, initialStep = 0 })
                 <button
                   onClick={handleRetry}
                   disabled={loading}
-                  className="bg-red-600 text-white px-4 py-2 rounded text-sm hover:bg-red-700 disabled:opacity-50 transition-colors"
+                  className="btn-primary text-sm"
                 >
-                  {loading ? 'Retrying...' : 'Retry'}
+                  {loading ? (
+                    <>
+                      <Icon name="loading" size={16} className="animate-spin mr-2" />
+                      Retrying...
+                    </>
+                  ) : (
+                    <>
+                      <Icon name="refresh" size={16} className="mr-2" />
+                      Retry
+                    </>
+                  )}
                 </button>
               </div>
             )}
@@ -326,7 +333,10 @@ export const SmartBookingFlow = ({ user, onComplete, onClose, initialStep = 0 })
         )}
 
         {/* Current Step Component */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+        <div 
+          className="bg-[var(--color-surface)] rounded-[var(--radius-md)] border border-[var(--color-border)] p-6 mb-6"
+          style={{ boxShadow: 'var(--shadow-sm)' }}
+        >
           <ErrorBoundary>
             <CurrentComponent
               bookingData={bookingManager.bookingData}
@@ -367,27 +377,23 @@ const NavigationControls = ({
   isMobile 
 }) => {
   return (
-    <div className={`flex ${isMobile ? 'flex-col space-y-3' : 'justify-between'} items-center`}>
+    <div className={`flex ${isMobile ? 'flex-col gap-3' : 'justify-between'} items-center`}>
       {/* Previous Button */}
       <button
         onClick={onPrevious}
         disabled={currentStep === 0 || loading}
         className={`
           ${isMobile ? 'w-full' : ''}
-          px-6 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg
-          hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed
-          transition-colors flex items-center justify-center gap-2
+          btn-secondary flex items-center justify-center gap-2
         `}
       >
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-        </svg>
-        Previous
+        <Icon name="back" size={16} />
+        <span style={{ fontSize: 'var(--text-sm)' }}>Previous</span>
       </button>
 
       {/* Progress Text */}
       {!isMobile && (
-        <span className="text-sm text-gray-500">
+        <span className="text-sm text-[var(--color-text-muted)]">
           Step {currentStep + 1} of {totalSteps}
         </span>
       )}
@@ -398,22 +404,17 @@ const NavigationControls = ({
         disabled={!canGoNext || loading}
         className={`
           ${isMobile ? 'w-full' : ''}
-          px-6 py-2 bg-red-600 text-white rounded-lg
-          hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed
-          transition-colors flex items-center justify-center gap-2
+          btn-primary flex items-center justify-center gap-2
         `}
       >
         {loading && (
-          <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-          </svg>
+          <Icon name="loading" size={16} className="animate-spin" />
         )}
-        {isLastStep ? 'Complete' : 'Next'}
+        <span style={{ fontSize: 'var(--text-sm)' }}>
+          {isLastStep ? 'Complete' : 'Next'}
+        </span>
         {!isLastStep && (
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
+          <Icon name="next" size={16} />
         )}
       </button>
     </div>

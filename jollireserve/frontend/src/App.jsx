@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Routes, Route, useLocation, useNavigate } from "react-router-dom";
+import "./styles/design-tokens.css";
 import Navbar from "./components/Navbar";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AdminRoute from "./components/AdminRoute";

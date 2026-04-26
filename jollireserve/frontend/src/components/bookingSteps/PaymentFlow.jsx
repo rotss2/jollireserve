@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Icon } from '../Icon';
 
 export const PaymentFlow = ({ bookingData, onNext, onPrevious, loading }) => {
   const [paymentMethod, setPaymentMethod] = useState(bookingData.paymentMethod || 'pay_at_restaurant');
@@ -17,21 +18,21 @@ export const PaymentFlow = ({ bookingData, onNext, onPrevious, loading }) => {
       id: 'pay_at_restaurant',
       title: 'Pay at Restaurant',
       description: 'Pay after your meal with cash, card, or mobile',
-      icon: '💳',
+      icon: 'payment',
       recommended: true
     },
     {
       id: 'card_online',
       title: 'Pay Online Now',
       description: 'Secure online payment with credit/debit card',
-      icon: '🔒',
+      icon: 'secure',
       recommended: false
     },
     {
       id: 'mobile_payment',
       title: 'Mobile Payment',
       description: 'Pay with Apple Pay, Google Pay, or other mobile wallets',
-      icon: '📱',
+      icon: 'smartphone',
       recommended: false
     }
   ];
@@ -194,7 +195,9 @@ export const PaymentFlow = ({ bookingData, onNext, onPrevious, loading }) => {
               `}
             >
               <div className="flex items-center">
-                <span className="text-2xl mr-3">{method.icon}</span>
+                <div className="w-10 h-10 rounded-[var(--radius-md)] bg-[var(--color-brand-light)] flex items-center justify-center mr-3">
+                  <Icon name={method.icon} size={20} color="var(--color-brand)" />
+                </div>
                 <div className="flex-1">
                   <div className="flex items-center">
                     <h4 className="font-medium text-gray-900">{method.title}</h4>
@@ -337,15 +340,15 @@ export const PaymentFlow = ({ bookingData, onNext, onPrevious, loading }) => {
         <div className="bg-white rounded-lg border border-gray-200 p-6">
           <h3 className="text-lg font-medium text-gray-900 mb-4">Mobile Payment</h3>
           <div className="grid grid-cols-2 gap-4">
-            <button className="p-4 border-2 border-gray-200 rounded-lg hover:border-gray-300 transition-colors">
+            <button className="p-4 border-2 border-[var(--color-border)] rounded-[var(--radius-md)] hover:border-[var(--color-border-strong)] transition-colors">
               <div className="text-center">
-                <div className="text-2xl mb-2">🍎</div>
+                <Icon name="smartphone" size={24} className="mx-auto mb-2" color="var(--color-brand)" />
                 <p className="text-sm font-medium">Apple Pay</p>
               </div>
             </button>
-            <button className="p-4 border-2 border-gray-200 rounded-lg hover:border-gray-300 transition-colors">
+            <button className="p-4 border-2 border-[var(--color-border)] rounded-[var(--radius-md)] hover:border-[var(--color-border-strong)] transition-colors">
               <div className="text-center">
-                <div className="text-2xl mb-2">📱</div>
+                <Icon name="smartphone" size={24} className="mx-auto mb-2" color="var(--color-brand)" />
                 <p className="text-sm font-medium">Google Pay</p>
               </div>
             </button>

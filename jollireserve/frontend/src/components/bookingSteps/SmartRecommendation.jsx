@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { apiService } from '../../services/apiService';
+import { Icon } from '../Icon';
 
 export const SmartRecommendation = ({ bookingData, onNext, onPrevious, user }) => {
   const [recommendation, setRecommendation] = useState(null);
@@ -285,11 +286,13 @@ export const SmartRecommendation = ({ bookingData, onNext, onPrevious, user }) =
                 <div className="text-sm text-gray-500">Confidence</div>
                 <div className="text-lg font-bold text-red-600">{recommendation.confidence}%</div>
               </div>
-              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
-                <span className="text-2xl">
-                  {recommendation.type === 'dine_in' ? '🍽️' : 
-                   recommendation.type === 'takeaway' ? '🥡' : '🐝'}
-                </span>
+              <div className="w-12 h-12 bg-[var(--color-brand-light)] rounded-full flex items-center justify-center">
+                <Icon 
+                  name={recommendation.type === 'dine_in' ? 'dineIn' : 
+                        recommendation.type === 'takeaway' ? 'takeaway' : 'queue'} 
+                  size={24} 
+                  color="var(--color-brand)" 
+                />
               </div>
             </div>
           </div>

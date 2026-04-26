@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Icon } from '../Icon';
 
 export const BookingReview = ({ bookingData, onNext, onPrevious, loading }) => {
   const [agreedToTerms, setAgreedToTerms] = useState(false);
@@ -162,18 +163,20 @@ export const BookingReview = ({ bookingData, onNext, onPrevious, loading }) => {
           {/* Dining Preference */}
           <div className="flex items-start space-x-3">
             <div className="flex-shrink-0">
-              <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
-                <span className="text-lg">
-                  {bookingData.diningPreference === 'dine_in' ? '🍽️' : 
-                   bookingData.diningPreference === 'takeaway' ? '🥡' : '🐝'}
-                </span>
+              <div className="w-10 h-10 bg-[var(--color-brand-light)] rounded-full flex items-center justify-center">
+                <Icon 
+                  name={bookingData.diningPreference === 'dine_in' ? 'dineIn' : 
+                        bookingData.diningPreference === 'takeaway' ? 'takeaway' : 'queue'} 
+                  size={20} 
+                  color="var(--color-brand)" 
+                />
               </div>
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-900">Dining Preference</p>
-              <p className="text-gray-700 capitalize">{bookingData.diningPreference?.replace('_', ' ')}</p>
+              <p className="text-sm font-medium text-[var(--color-text-primary)]">Dining Preference</p>
+              <p className="text-[var(--color-text-secondary)] capitalize">{bookingData.diningPreference?.replace('_', ' ')}</p>
               {bookingData.occasions && bookingData.occasions.length > 0 && (
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-[var(--color-text-muted)]">
                   Occasion: {bookingData.occasions.join(', ')}
                 </p>
               )}
