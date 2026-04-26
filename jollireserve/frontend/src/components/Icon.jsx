@@ -166,6 +166,7 @@ const iconMap = {
   // Navigation
   back: ChevronLeft,
   next: ChevronRight,
+  chevron: ChevronRight,
   close: X,
   menu: Menu,
   search: Search,

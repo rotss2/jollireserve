@@ -1,7 +1,21 @@
-// Enhanced API Service with retry logic and circuit breaker
+// Enhanced API Service with retry logic, circuit breaker, and comprehensive error handling
 import { bookingManager } from './bookingStateManager';
+import { 
+  AppError, 
+  NetworkError, 
+  TimeoutError,
+  ValidationError,
+  NotFoundError,
+  UnauthorizedError,
+  ConflictError,
+  ExternalServiceError,
+  toAppError,
+  errorLogger,
+  withErrorHandling,
+  ErrorCode 
+} from '../utils/errors';
 
-// Custom error class for API errors
+// Custom error class for API errors (maintaining backward compatibility)
 export class APIError extends Error {
   constructor(status, message, data = null) {
     super(message);
@@ -166,6 +180,19 @@ export class APIService {
   }
 
   async executeWithRetry(url, config, attempt = 1) {
+    // ASSUMPTION: url is always a valid string starting with http
+    // If url is malformed, fetch will throw TypeError which we'll catch
+    
+    const requestId = this.generateRequestId();
+    const errorContext = {
+      operation: 'api_request',
+      url,
+      requestId,
+      attempt,
+      maxRetries: this.retryConfig.maxRetries,
+      timeout: config.timeout
+    };
+
     try {
       // Apply request interceptors
       let finalConfig = config;
@@ -173,16 +200,24 @@ export class APIService {
         finalConfig = await interceptor(finalConfig);
       }
 
+      // Set up timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), config.timeout || 10000);
+
       const response = await fetch(url, {
         ...finalConfig,
+        signal: controller.signal,
         headers: {
           'Content-Type': 'application/json',
           'Authorization': this.getAuthToken() ? `Bearer ${this.getAuthToken()}` : '',
           'X-Client-Version': '1.0.0',
-          'X-Request-ID': this.generateRequestId(),
+          'X-Request-ID': requestId,
           ...finalConfig.headers
         }
       });
+
+      // Clear timeout on success
+      clearTimeout(timeoutId);
 
       // Apply response interceptors
       let processedResponse = response;
@@ -190,12 +225,60 @@ export class APIService {
         processedResponse = await interceptor(processedResponse);
       }
 
+      // Handle HTTP errors with typed errors
       if (!processedResponse.ok) {
-        throw new APIError(
-          processedResponse.status, 
-          processedResponse.statusText,
-          await processedResponse.clone().json().catch(() => null)
-        );
+        const errorBody = await processedResponse.clone().json().catch(() => null);
+        
+        // Map HTTP status to typed error
+        let typedError;
+        const status = processedResponse.status;
+        const endpoint = url.replace(this.baseURL, '');
+        
+        switch (status) {
+          case 400:
+            typedError = new ValidationError(
+              errorBody?.fields || {},
+              errorBody?.message || 'Invalid request'
+            );
+            break;
+          case 401:
+            typedError = new UnauthorizedError(
+              errorBody?.message || 'Session expired'
+            );
+            break;
+          case 404:
+            typedError = new NotFoundError(
+              'Resource',
+              errorBody?.id || endpoint,
+              errorBody?.message
+            );
+            break;
+          case 409:
+            typedError = new ConflictError(
+              'Resource',
+              errorBody?.id,
+              errorBody?.message
+            );
+            break;
+          case 503:
+          case 502:
+          case 504:
+            typedError = new ExternalServiceError(
+              'Backend API',
+              new Error(`HTTP ${status}: ${processedResponse.statusText}`),
+              { endpoint, status }
+            );
+            break;
+          default:
+            typedError = new AppError(
+              errorBody?.message || `Request failed with status ${status}`,
+              ErrorCode.UNKNOWN,
+              status,
+              { endpoint, statusText: processedResponse.statusText, body: errorBody }
+            );
+        }
+        
+        throw typedError;
       }
 
       const result = await processedResponse.json();
@@ -204,32 +287,55 @@ export class APIService {
       this.emit('request:success', { 
         url, 
         status: processedResponse.status, 
-        attempt 
+        attempt,
+        requestId
       });
 
       return result;
 
     } catch (error) {
-      // Emit error event
+      // Clear timeout on error
+      clearTimeout(timeoutId);
+      
+      // Convert to typed error if not already
+      const typedError = toAppError(error, errorContext);
+      
+      // Log error with full context (Senior Engineer Policy: Never swallow errors)
+      errorLogger.error('API request failed', typedError, {
+        ...errorContext,
+        userAgent: navigator.userAgent,
+        online: navigator.onLine
+      });
+      
+      // Emit error event for UI handling
+      const willRetry = this.shouldRetry(error) && attempt < this.retryConfig.maxRetries;
       this.emit('request:error', { 
         url, 
-        error: error.message, 
+        error: typedError,
+        originalError: error,
         attempt,
-        willRetry: this.shouldRetry(error) && attempt < this.retryConfig.maxRetries
+        willRetry,
+        requestId,
+        userMessage: typedError.toUserMessage()
       });
 
       // Retry on network errors or retryable HTTP errors
-      if (this.shouldRetry(error) && attempt < this.retryConfig.maxRetries) {
+      if (willRetry) {
         const delay = this.retryConfig.retryDelay * 
           Math.pow(this.retryConfig.backoffMultiplier, attempt - 1);
         
-        console.log(`Retrying request to ${url} in ${delay}ms (attempt ${attempt + 1}/${this.retryConfig.maxRetries})`);
+        errorLogger.warn(`Retrying request after ${delay}ms`, {
+          url,
+          attempt: attempt + 1,
+          maxRetries: this.retryConfig.maxRetries
+        });
         
         await this.sleep(delay);
         return this.executeWithRetry(url, config, attempt + 1);
       }
       
-      throw error;
+      // Final error - throw typed error
+      throw typedError;
     }
   }
 

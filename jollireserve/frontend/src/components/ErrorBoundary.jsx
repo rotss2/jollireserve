@@ -1,4 +1,6 @@
 import React from 'react';
+import { AppError, toAppError, errorLogger } from '../utils/errors';
+import { Icon } from './Icon';
 
 export class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -32,36 +34,25 @@ export class ErrorBoundary extends React.Component {
   }
 
   logError = (error, errorInfo, errorId) => {
-    const errorData = {
+    // Convert to typed error for consistent handling
+    const typedError = toAppError(error, {
+      operation: 'react_error_boundary',
       errorId,
-      message: error.message,
-      stack: error.stack,
-      componentStack: errorInfo.componentStack,
-      timestamp: new Date().toISOString(),
+      componentStack: errorInfo?.componentStack
+    });
+
+    // Log with structured format (Senior Engineer Policy: Never swallow errors)
+    errorLogger.error('React component error caught by boundary', typedError, {
+      errorId,
+      componentStack: errorInfo?.componentStack,
       userAgent: navigator.userAgent,
       url: window.location.href,
-      userId: this.getUserId()
-    };
+      userId: this.getUserId(),
+      reactVersion: React.version
+    });
 
-    // Log to console in development
-    if (process.env.NODE_ENV === 'development') {
-      console.error('Error caught by boundary:', errorData);
-    }
-
-    // Send to monitoring service (in production)
-    try {
-      // This would integrate with your error monitoring service
-      // like Sentry, LogRocket, or custom endpoint
-      fetch('/api/errors', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(errorData)
-      }).catch(err => {
-        console.warn('Failed to log error to service:', err);
-      });
-    } catch (err) {
-      console.warn('Error logging failed:', err);
-    }
+    // Store in state for display
+    this.setState({ typedError });
   };
 
   getUserId = () => {
@@ -164,36 +155,45 @@ const ErrorRecoveryUI = ({
     setIsRecovering(true);
     try {
       await onRecover();
+    } catch (recoverError) {
+      // ASSUMPTION: Recovery may fail if localStorage is corrupted
+      // Log but don't throw - UI should handle gracefully
+      errorLogger.error('Recovery attempt failed', recoverError, { errorId });
     } finally {
       setIsRecovering(false);
     }
   };
 
   const isDevelopment = process.env.NODE_ENV === 'development';
+  
+  // Get user-friendly error message
+  const userMessage = error?.toUserMessage?.() || 
+    'We encountered an unexpected error. Don\'t worry, your work has been saved locally.';
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-      <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-6">
+    <div className="min-h-screen flex items-center justify-center bg-[var(--color-canvas)] px-4">
+      <div 
+        className="max-w-md w-full bg-[var(--color-surface)] rounded-[var(--radius-lg)] p-6"
+        style={{ boxShadow: 'var(--shadow-lg)' }}
+      >
         {/* Error Icon */}
-        <div className="flex items-center justify-center w-16 h-16 mx-auto bg-red-100 rounded-full mb-4">
-          <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
-          </svg>
+        <div className="flex items-center justify-center w-16 h-16 mx-auto bg-[var(--color-danger-light)] rounded-full mb-4">
+          <Icon name="error" size={32} color="var(--color-danger)" />
         </div>
         
         {/* Error Message */}
         <div className="text-center mb-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">
+          <h2 className="text-xl font-semibold text-[var(--color-text-primary)] mb-2">
             Something went wrong
           </h2>
           
-          <p className="text-gray-600 mb-2">
-            We encountered an unexpected error. Don't worry, your work has been saved locally.
+          <p className="text-[var(--color-text-secondary)] mb-2">
+            {userMessage}
           </p>
           
           {errorId && (
-            <p className="text-xs text-gray-500">
-              Error ID: {errorId}
+            <p className="text-xs text-[var(--color-text-muted)]">
+              Reference: {errorId}
             </p>
           )}
         </div>
@@ -203,22 +203,17 @@ const ErrorRecoveryUI = ({
           <button
             onClick={handleRecover}
             disabled={isRecovering}
-            className="w-full bg-red-600 text-white py-3 px-4 rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+            className="w-full btn-primary flex items-center justify-center disabled:opacity-50"
           >
             {isRecovering ? (
               <>
-                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Recovering...
+                <Icon name="loading" size={20} className="animate-spin mr-2" />
+                <span>Recovering...</span>
               </>
             ) : (
               <>
-                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                Recover My Work
+                <Icon name="refresh" size={20} className="mr-2" />
+                <span>Recover My Work</span>
               </>
             )}
           </button>
@@ -226,14 +221,14 @@ const ErrorRecoveryUI = ({
           <div className="grid grid-cols-2 gap-3">
             <button
               onClick={onRetry}
-              className="bg-gray-200 text-gray-800 py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors"
+              className="btn-secondary"
             >
               Try Again
             </button>
             
             <button
               onClick={onReload}
-              className="bg-gray-200 text-gray-800 py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors"
+              className="btn-secondary"
             >
               Reload Page
             </button>
@@ -241,7 +236,7 @@ const ErrorRecoveryUI = ({
           
           <button
             onClick={onGoHome}
-            className="w-full text-red-600 py-2 px-4 rounded-lg hover:bg-red-50 transition-colors"
+            className="w-full text-[var(--color-brand)] hover:bg-[var(--color-brand-light)] py-2 px-4 rounded-[var(--radius-md)] transition-colors"
           >
             Go to Homepage
           </button>
@@ -249,30 +244,27 @@ const ErrorRecoveryUI = ({
 
         {/* Error Details (Development Only) */}
         {isDevelopment && (
-          <div className="border-t pt-4">
+          <div className="border-t border-[var(--color-border)] pt-4">
             <button
               onClick={() => setShowDetails(!showDetails)}
-              className="w-full text-left text-sm text-gray-600 hover:text-gray-800 flex items-center justify-between"
+              className="w-full text-left text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] flex items-center justify-between"
             >
-              <span>Error Details (Development)</span>
-              <svg 
-                className={`w-4 h-4 transform transition-transform ${showDetails ? 'rotate-180' : ''}`} 
-                fill="none" 
-                stroke="currentColor" 
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-              </svg>
+              <span>Error Details (Development Only)</span>
+              <Icon 
+                name="chevron" 
+                size={16} 
+                className={`transform transition-transform ${showDetails ? 'rotate-180' : ''}`} 
+              />
             </button>
             
             {showDetails && (
               <div className="mt-3 space-y-2">
-                <div className="bg-red-50 p-3 rounded text-xs">
+                <div className="bg-[var(--color-danger-light)] p-3 rounded-[var(--radius-md)] text-xs text-[var(--color-danger)]">
                   <strong>Error:</strong> {error?.toString()}
                 </div>
                 
                 {errorInfo?.componentStack && (
-                  <div className="bg-yellow-50 p-3 rounded text-xs overflow-x-auto">
+                  <div className="bg-[var(--color-warning-light)] p-3 rounded-[var(--radius-md)] text-xs overflow-x-auto text-[var(--color-warning)]">
                     <strong>Component Stack:</strong>
                     <pre className="mt-1 whitespace-pre-wrap">
                       {errorInfo.componentStack}
@@ -285,22 +277,22 @@ const ErrorRecoveryUI = ({
         )}
 
         {/* Help Section */}
-        <div className="border-t pt-4 mt-4">
+        <div className="border-t border-[var(--color-border)] pt-4 mt-4">
           <div className="text-center">
-            <p className="text-sm text-gray-600 mb-2">
+            <p className="text-sm text-[var(--color-text-muted)] mb-2">
               Need help? Contact our support team
             </p>
             <div className="flex justify-center space-x-4">
               <a 
                 href="mailto:support@jollibee-reserve.com" 
-                className="text-red-600 hover:text-red-700 text-sm"
+                className="text-[var(--color-brand)] hover:text-[var(--color-brand-dark)] text-sm"
               >
                 Email Support
               </a>
-              <span className="text-gray-400">•</span>
+              <span className="text-[var(--color-border)]">•</span>
               <a 
                 href="tel:1-800-JOLLIBEE" 
-                className="text-red-600 hover:text-red-700 text-sm"
+                className="text-[var(--color-brand)] hover:text-[var(--color-brand-dark)] text-sm"
               >
                 Call Support
               </a>
