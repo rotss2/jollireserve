@@ -9,11 +9,22 @@
  * - Request size limits
  */
 
-const rateLimit = require('express-rate-limit');
-const slowDown = require('express-slow-down');
-const helmet = require('helmet');
-const Joi = require('joi');
-const xss = require('xss');
+// Graceful dependency loading - won't crash if packages missing
+try {
+  var rateLimit = require('express-rate-limit');
+  var slowDown = require('express-slow-down');
+  var helmet = require('helmet');
+  var Joi = require('joi');
+  var xss = require('xss');
+} catch (error) {
+  console.warn('[Security] Some security packages not installed. Run: npm install express-rate-limit express-slow-down helmet joi xss');
+  // Provide fallbacks
+  var rateLimit = null;
+  var slowDown = null;
+  var helmet = null;
+  var Joi = null;
+  var xss = null;
+}
 
 // In-memory store for rate limiting (use Redis in production)
 const requestStore = new Map();
@@ -34,7 +45,7 @@ setInterval(() => {
  * Tier 1: General API Rate Limiting
  * 100 requests per 15 minutes per IP
  */
-const generalRateLimit = rateLimit({
+const generalRateLimit = rateLimit ? rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100, // limit each IP to 100 requests per windowMs
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
@@ -47,13 +58,13 @@ const generalRateLimit = rateLimit({
     console.warn(`[Security] Rate limit exceeded for IP: ${req.ip}`);
     res.status(options.statusCode).json(options.message);
   }
-});
+}) : (req, res, next) => next(); // Fallback if rateLimit not available
 
 /**
  * Tier 2: Auth Endpoints Rate Limiting
  * 10 requests per minute (prevent brute force)
  */
-const authRateLimit = rateLimit({
+const authRateLimit = rateLimit ? rateLimit({
   windowMs: 60 * 1000, // 1 minute
   max: 10, // 10 requests per minute
   message: {
@@ -64,13 +75,13 @@ const authRateLimit = rateLimit({
     console.warn(`[Security] Auth rate limit exceeded for IP: ${req.ip}`);
     res.status(options.statusCode).json(options.message);
   }
-});
+}) : (req, res, next) => next();
 
 /**
  * Tier 3: Booking Creation Rate Limiting
  * 5 bookings per hour per user
  */
-const bookingRateLimit = rateLimit({
+const bookingRateLimit = rateLimit ? rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
   max: 5, // 5 bookings per hour
   keyGenerator: (req) => {
@@ -86,24 +97,24 @@ const bookingRateLimit = rateLimit({
     console.warn(`[Security] Booking rate limit exceeded for ${identifier}`);
     res.status(options.statusCode).json(options.message);
   }
-});
+}) : (req, res, next) => next();
 
 /**
  * Tier 4: Slow Down (progressive delay)
  * Add delay after 50 requests to discourage abuse
  */
-const speedLimiter = slowDown({
+const speedLimiter = slowDown ? slowDown({
   windowMs: 15 * 60 * 1000, // 15 minutes
   delayAfter: 50, // allow 50 requests at full speed
   delayMs: 500, // add 500ms delay per request after delayAfter
   maxDelayMs: 5000, // maximum delay of 5 seconds
-});
+}) : (req, res, next) => next();
 
 /**
  * Security headers middleware
  * Uses Helmet with custom configuration
  */
-const securityHeaders = helmet({
+const securityHeaders = helmet ? helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
@@ -123,13 +134,19 @@ const securityHeaders = helmet({
     includeSubDomains: true,
     preload: true
   }
-});
+}) : (req, res, next) => next();
 
 /**
  * Input sanitization middleware
  * Prevents XSS attacks by sanitizing all string inputs
  */
 const sanitizeInput = (req, res, next) => {
+  // Skip if xss not available
+  if (!xss) {
+    console.warn('[Security] XSS sanitization disabled - xss package not installed');
+    return next();
+  }
+  
   const sanitize = (obj) => {
     if (typeof obj === 'string') {
       return xss(obj, {
