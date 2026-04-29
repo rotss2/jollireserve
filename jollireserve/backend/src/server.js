@@ -18,6 +18,21 @@ const bcrypt = require("bcryptjs");
 const { v4: uuid } = require("uuid");
 const { isoNow } = require("./utils/time");
 
+// Phase 1: Emergency Security - Import security middleware
+const { 
+  securityHeaders, 
+  sanitizeInput, 
+  preventNoSQLInjection,
+  generalRateLimit,
+  authRateLimit,
+  bookingRateLimit,
+  validateRequest,
+  validationSchemas 
+} = require("./middleware/security");
+
+// Phase 1: Emergency Security - Import error handling
+const { errorHandler, notFoundHandler } = require("./middleware/errorHandler");
+
 const app = express();
 const PORT = process.env.PORT || 4000;
 
@@ -37,25 +52,52 @@ console.log("✅ CORS allowed origins:", allowedOrigins);
 app.use(
   cors({
     origin: function (origin, callback) {
-      if (!origin) return callback(null, true);
+      // Phase 1: SECURITY FIX - Removed `if (!origin) return callback(null, true)`
+      // This was a security hole allowing tools like Postman/curl to bypass CORS
+      
+      // Only allow known origins
       if (allowedOrigins.includes(origin)) return callback(null, true);
-      console.warn("CORS blocked origin:", origin);
+      
+      // Log blocked origins for monitoring
+      console.warn("[Security] CORS blocked origin:", origin || "(no origin)");
       callback(new Error("Not allowed by CORS"));
     },
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
   })
 );
 app.use(express.json({ limit: "2mb" }));
 app.use(express.urlencoded({ extended: true }));
 
+// Phase 1: Apply security middleware
+// 1. Security headers (Helmet)
+app.use(securityHeaders);
+
+// 2. Input sanitization (XSS prevention)
+app.use(sanitizeInput);
+
+// 3. NoSQL injection prevention
+app.use(preventNoSQLInjection);
+
+// 4. Rate limiting (general)
+app.use("/api/", generalRateLimit);
+
+// 5. Stricter rate limiting for auth endpoints
+app.use("/api/auth", authRateLimit);
+
 // Health check (available immediately, before DB is ready)
 app.get("/api/health", (req, res) =>
-  res.json({ ok: true, name: "JolliReserve API" })
+  res.json({ ok: true, name: "JolliReserve API", timestamp: isoNow() })
 );
 
 // Routes
 app.use("/api/auth", authRoutes);
+
+// Reservations: Apply stricter rate limiting for POST (booking creation)
 app.use("/api/reservations", reservationRoutes);
+app.post("/api/reservations", bookingRateLimit); // Additional rate limit for creating bookings
+
 app.use("/api/queue", queueRoutes);
 app.use("/api/tables", tableRoutes);
 app.use("/api/admin", adminRoutes);
@@ -63,11 +105,11 @@ app.use("/api/menu", menuRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/staff", staffRoutes);
 
-// Error handler
-app.use((err, req, res, next) => {
-  console.error("API Error:", err);
-  res.status(err.status || 500).json({ error: "Server error", details: err.message });
-});
+// Phase 1: Emergency Security - Apply centralized error handling (must be last)
+app.use(errorHandler);
+
+// 404 handler for undefined routes
+app.use(notFoundHandler);
 
 // ─── Async startup ────────────────────────────────────────────────────────────
 async function autoSeed() {

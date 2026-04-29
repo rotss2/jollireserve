@@ -10,6 +10,14 @@ const { buildReceiptPdf } = require("../utils/receiptPdf");
 const { broadcast } = require('../ws');
 const QRCode = require('qrcode');
 
+// Phase 1: Emergency Security - Transaction utilities
+const { 
+  findAndLockAvailableTable, 
+  releaseTableLock, 
+  confirmTableLock,
+  NoAvailableTablesError 
+} = require('../utils/transactions');
+
 const router = express.Router();
 
 // Helper to get system settings
@@ -92,31 +100,37 @@ router.post("/", requireAuth, async (req, res, next) => {
       });
     }
 
-    // Get available tables for this party size
-    const db = getDb();
-    let availableTables = [];
-    try {
-      const tablesSnapshot = await db.collection("tables")
-        .where("is_active", "==", true)
-        .where("capacity", ">=", Number(party_size))
-        .get();
-      availableTables = tablesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    } catch (indexErr) {
-      console.warn("[Reservations] Tables index missing, using fallback:", indexErr.message);
-      // Fallback: get all active tables and filter in memory
-      const allTablesSnapshot = await db.collection("tables")
-        .where("is_active", "==", true)
-        .get();
-      availableTables = allTablesSnapshot.docs
-        .map(doc => ({ id: doc.id, ...doc.data() }))
-        .filter(table => table.capacity >= Number(party_size));
-    }
+    // Phase 1: SECURITY FIX - Atomic table locking prevents race conditions
+    // This replaces the vulnerable code that allowed double-bookings
+    let chosenTable = null;
+    let lockId = null;
     
-    // Simple table assignment - pick first available
-    const chosenTable = availableTables.length > 0 ? availableTables[0] : null;
+    try {
+      // Use atomic transaction to find and lock available table
+      // This ensures only one reservation can claim a table at a time
+      chosenTable = await findAndLockAvailableTable(
+        Number(party_size),
+        date,
+        time,
+        area_pref
+      );
+      lockId = chosenTable.lock_id;
+      
+      console.log(`[Reservations] Table ${chosenTable.id} locked for reservation process`);
+    } catch (lockError) {
+      if (lockError instanceof NoAvailableTablesError) {
+        return res.status(409).json({
+          error: "No tables available for the selected date, time, and party size.",
+          suggestion: "Try a different time or date",
+          code: "NO_TABLES_AVAILABLE"
+        });
+      }
+      throw lockError;
+    }
 
     const id = uuid();
     const createdAt = isoNow();
+    const db = getDb();
 
     const reservationData = {
       id,
@@ -131,12 +145,19 @@ router.post("/", requireAuth, async (req, res, next) => {
       table_id: chosenTable ? chosenTable.id : null,
       table_name: chosenTable ? chosenTable.name : null,
       table_area: chosenTable ? chosenTable.area : null,
+      lock_id: lockId, // Track which lock was used
       status: "pending",
       created_at: createdAt,
       updated_at: createdAt
     };
     
     await db.collection("reservations").doc(id).set(reservationData);
+    
+    // Confirm the table lock now that reservation is created
+    if (chosenTable) {
+      await confirmTableLock(chosenTable.id, id);
+      console.log(`[Reservations] Table ${chosenTable.id} lock confirmed for reservation ${id}`);
+    }
     
     // Log activity
     await logActivity(req.user.id, "reservation_created", { 
