@@ -345,37 +345,61 @@ export default function Admin({ user }) {
   };
 
   return (
-    <div className="mx-auto max-w-6xl px-4 pb-16 pt-4">
+    <div className="min-h-screen bg-[var(--bg-body)]">
       <Toast message={toast.message} type={toast.type} onClose={() => setToast({ message: "", type: "success" })} />
 
-      {/* Page Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-3xl md:text-4xl font-black mb-1">Admin Dashboard</h1>
-          <p className="text-sm" style={{ color: "var(--text-muted)" }}>
-            Manage your restaurant operations
-          </p>
+      {/* Admin Header */}
+      <header className="bg-[var(--bg-card)] border-b border-[var(--border)] sticky top-16 z-30">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-[var(--text-main)]">Admin Dashboard</h1>
+              <p className="text-sm text-[var(--text-muted)] mt-1">
+                Manage reservations, queue, and operations
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-[var(--text-muted)]">
+                Last updated: {new Date().toLocaleTimeString()}
+              </span>
+              <button
+                className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--bg-subtle)] hover:bg-[var(--border)] text-[var(--text-main)] rounded-lg text-sm font-medium transition-colors"
+                onClick={loadAll}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Refresh
+              </button>
+            </div>
+          </div>
         </div>
-        <button className="btn btn-secondary btn-md" onClick={loadAll}>
-          <span>🔄</span> Refresh Data
-        </button>
-      </div>
 
-      {/* Organized Tab Navigation */}
-      <div className="mb-6">
-        <div className="flex flex-wrap gap-2">
-          {TABS.map(t => (
-            <button 
-              key={t} 
-              onClick={() => { setTab(t); setSelectedUser(null); setUserHistory(null); }}
-              className={`btn btn-sm flex items-center gap-2 ${tab === t ? 'btn-primary' : 'btn-secondary'}`}
-            >
-              <span>{getTabIcon(t)}</span>
-              <span className="hidden sm:inline">{t}</span>
-            </button>
-          ))}
+        {/* Tab Navigation - Scrollable on mobile */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <nav className="flex gap-1 overflow-x-auto pb-2 scrollbar-hide">
+            {TABS.map(t => (
+              <button
+                key={t}
+                onClick={() => { setTab(t); setSelectedUser(null); setUserHistory(null); }}
+                className={`
+                  flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all
+                  ${tab === t
+                    ? "bg-[var(--red)] text-white shadow-sm"
+                    : "text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--bg-subtle)]"
+                  }
+                `}
+              >
+                <span>{getTabIcon(t)}</span>
+                <span>{t}</span>
+              </button>
+            ))}
+          </nav>
         </div>
-      </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
 
       {tab === "Dashboard" && (
         <div className="space-y-6">
@@ -1184,12 +1208,13 @@ export default function Admin({ user }) {
           <div className="card mt-4" style={{ padding: "1rem", background: "#1a1a2e" }}>
             <h3 className="text-md font-medium mb-2">💳 Payment Integration (Coming Soon)</h3>
             <p className="text-sm" style={{ color: "var(--text-muted)" }}>
-              PayMongo integration for GCash, Maya, GrabPay, and credit cards. 
+              PayMongo integration for GCash, Maya, GrabPay, and credit cards.
               Customers can pre-order food during reservation to reduce no-shows and secure revenue.
             </p>
           </div>
         </div>
       )}
+      </main>
     </div>
   );
 }
