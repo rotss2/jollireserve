@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import * as api from "../lib/api";
-import { SkeletonLoader, CardSkeleton, FullPageLoader, LoadingDots } from "../components/LoadingStates";
+import { api } from "../lib/api";
+import { FullPageLoader } from "../components/LoadingStates";
+import Button from "../components/Button";
 
 export default function Home({ user }) {
   const isAdmin = user?.role === "admin";
@@ -23,7 +24,8 @@ export default function Home({ user }) {
     try {
       setLoading(true);
       // Check for active reservations
-      const reservations = await api.listMyReservations();
+      const data = await api.myReservations();
+      const reservations = data.reservations || [];
       const pendingReservation = reservations.find(r => 
         r.status === "pending" || r.status === "confirmed"
       );
@@ -32,10 +34,10 @@ export default function Home({ user }) {
       }
 
       // Check for active queue entry
-      const queue = await api.listQueue();
-      const myQueueEntry = queue.find(q => 
-        q.email === user?.email && 
-        (q.status === "waiting" || q.status === "called")
+      const queueData = await api.queueActive();
+      const activeEntries = queueData.entries || [];
+      const myQueueEntry = activeEntries.find(q => 
+        q.user_id === user?.id || q.email === user?.email
       );
       if (myQueueEntry) {
         setActiveQueue(myQueueEntry);
@@ -55,119 +57,107 @@ export default function Home({ user }) {
   }
 
   return (
-    <div className="mx-auto max-w-6xl px-4 pb-16 pt-6">
-      
-      {/* HERO SECTION - Clear Visual Hierarchy */}
-      <section className="mb-12">
-        <div className="grid lg:grid-cols-2 gap-8 items-center">
-          {/* Left: Content */}
-          <div className="order-2 lg:order-1">
-            {/* Badge - Context */}
-            {loading ? (
-              <SkeletonLoader width="w-32" height="h-6" className="mb-6" />
-            ) : (
-              <div className="badge badge-md badge-secondary mb-6">
-                🍽️ Restaurant Management System
+    <div className="min-h-screen bg-gradient-to-b from-[var(--bg-body)] to-[var(--bg-subtle)]">
+      {/* Hero Section */}
+      <section className="relative overflow-hidden">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 lg:py-16">
+          <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
+            {/* Left: Content */}
+            <div className="order-2 lg:order-1 text-center lg:text-left">
+              {/* Badge */}
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[var(--red)]/10 text-[var(--red)] text-sm font-medium mb-6">
+                <span>🍽️</span>
+                <span>Smart Restaurant System</span>
               </div>
-            )}
-            
-            {/* Headline - Primary Focus - Mobile Optimized */}
-            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black leading-tight mb-6">
-              {isAdmin ? (
-                <>
-                  <span style={{ color: "var(--red)" }}>Admin</span> Dashboard
-                </>
-              ) : (
-                <>
-                  Skip the Wait, <br className="hidden sm:block" />
-                  <span style={{ color: "var(--red)" }}>Savor the Moment</span>
-                </>
-              )}
-            </h1>
-            
-            {/* Subheadline - Supporting Info - Mobile Optimized */}
-            <p className="text-base sm:text-lg md:text-xl mb-8" style={{ color: "var(--text-muted)", maxWidth: "100%" }}>
-              {isAdmin 
-                ? "Manage reservations, queue, and operations from one powerful dashboard."
-                : "Reserve your table or join the queue in seconds. Real-time updates, instant confirmations."
-              }
-            </p>
-            
-            {/* CTA Buttons - Clear Action Hierarchy - Mobile Optimized */}
-            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 w-full sm:w-auto">
-              {isAdmin ? (
-                <Link 
-                  to="/admin" 
-                  className="btn btn-primary btn-lg btn-icon"
-                  style={{ justifyContent: "center" }}
-                >
-                  <span>📊</span>
-                  Open Admin Dashboard
-                </Link>
-              ) : user ? (
-                <>
-                  <Link 
-                    to="/reservations" 
-                    className="btn btn-primary btn-lg btn-icon w-full sm:w-auto"
-                    style={{ justifyContent: "center" }}
-                  >
-                    <span>📅</span>
-                    <span className="hidden sm:inline">Reserve a Table</span>
-                    <span className="sm:hidden">Reserve</span>
+
+              {/* Headline */}
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black leading-[1.1] mb-6">
+                {isAdmin ? (
+                  <>
+                    <span className="text-[var(--red)]">Admin</span>{" "}
+                    <span className="text-[var(--text-main)]">Dashboard</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-[var(--text-main)]">Skip the Wait,</span>
+                    <br />
+                    <span className="text-[var(--red)]">Savor the Moment</span>
+                  </>
+                )}
+              </h1>
+
+              {/* Subheadline */}
+              <p className="text-lg sm:text-xl text-[var(--text-muted)] mb-8 max-w-xl mx-auto lg:mx-0">
+                {isAdmin
+                  ? "Manage reservations, monitor queue, and streamline operations—all in one place."
+                  : "Reserve your table or join the queue in seconds. Get real-time updates and instant confirmations."
+                }
+              </p>
+
+              {/* CTA Buttons */}
+              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center lg:justify-start">
+                {isAdmin ? (
+                  <Link to="/admin">
+                    <Button size="lg" leftIcon={<span>📊</span>}>
+                      Open Admin Dashboard
+                    </Button>
                   </Link>
-                  <Link 
-                    to="/queue" 
-                    className="btn btn-secondary btn-lg btn-icon w-full sm:w-auto"
-                    style={{ justifyContent: "center" }}
-                  >
-                    <span>🐝</span>
-                    <span className="hidden sm:inline">Join Live Queue</span>
-                    <span className="sm:hidden">Join Queue</span>
-                  </Link>
-                </>
-              ) : (
-                <>
-                  <Link 
-                    to="/login" 
-                    className="btn btn-primary btn-lg btn-icon w-full sm:w-auto"
-                    style={{ justifyContent: "center" }}
-                  >
-                    <span>✨</span>
-                    Get Started
-                  </Link>
-                  <Link 
-                    to="/tv" 
-                    className="btn btn-tertiary btn-lg w-full sm:w-auto"
-                    style={{ justifyContent: "center" }}
-                  >
-                    <span>📺</span>
-                    <span className="hidden sm:inline">View Live Queue</span>
-                    <span className="sm:hidden">Live Queue</span>
-                  </Link>
-                </>
+                ) : user ? (
+                  <>
+                    <Link to="/reservations">
+                      <Button size="lg" leftIcon={<span>📅</span>} fullWidth>
+                        Reserve Table
+                      </Button>
+                    </Link>
+                    <Link to="/queue">
+                      <Button variant="secondary" size="lg" leftIcon={<span>🐝</span>} fullWidth>
+                        Join Queue
+                      </Button>
+                    </Link>
+                  </>
+                ) : (
+                  <>
+                    <Link to="/login">
+                      <Button size="lg" leftIcon={<span>✨</span>} fullWidth>
+                        Get Started
+                      </Button>
+                    </Link>
+                    <Link to="/tv">
+                      <Button variant="secondary" size="lg" leftIcon={<span>📺</span>} fullWidth>
+                        View Live Queue
+                      </Button>
+                    </Link>
+                  </>
+                )}
+              </div>
+
+              {/* Trust Indicators */}
+              {!isAdmin && (
+                <div className="mt-8 flex flex-wrap justify-center lg:justify-start gap-4 sm:gap-6 text-sm text-[var(--text-muted)]">
+                  <div className="flex items-center gap-2">
+                    <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span>Instant Confirmation</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span>Real-time Updates</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span>Smart Queue</span>
+                  </div>
+                </div>
               )}
             </div>
-            
-            {/* Trust Indicators - Mobile Optimized */}
-            {!isAdmin && (
-              <div className="mt-6 sm:mt-8 grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-6 text-sm" style={{ color: "var(--text-muted)" }}>
-                <div className="flex items-center gap-2 justify-center sm:justify-start">
-                  <span className="text-green-500 text-base">✓</span>
-                  <span className="text-xs sm:text-sm">Instant Confirmation</span>
-                </div>
-                <div className="flex items-center gap-2 justify-center sm:justify-start">
-                  <span className="text-green-500 text-base">✓</span>
-                  <span className="text-xs sm:text-sm">Real-time Updates</span>
-                </div>
-                <div className="flex items-center gap-2 justify-center sm:justify-start">
-                  <span className="text-green-500 text-base">✓</span>
-                  <span className="text-xs sm:text-sm">No Registration Required</span>
-                </div>
-              </div>
-            )}
           </div>
-          
-          {/* Right: Hero Image - Mobile Optimized */}
+
+          {/* Right: Hero Image */}
           <div className="order-1 lg:order-2 w-full lg:w-auto">
             <div className="card card-large overflow-hidden" style={{ padding: 0 }}>
               <img
